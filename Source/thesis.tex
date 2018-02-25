@@ -1,0 +1,140 @@
+% !TeX spellcheck = en_US
+
+\documentclass
+[
+    digital, %% digital / printed
+    oneside, %% oneside / twoside
+    table, %% table / notable - coloring of tables
+    nolof, %% lof / nolof - list of figures inclusion
+    nolot, %% lot / nolot - list of tables inclusion
+    nocover %% cover / nocover - cover page inclusion
+    %% More options at <http://mirrors.ctan.org/macros/latex/contrib/fithesis/guide/mu/fi.pdf>
+]{fithesis3}
+
+\usepackage[resetfonts]{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[main=english, slovak, czech]{babel}
+
+\thesissetup
+{
+    date = \the\year/\the\month/\the\day,
+    university = mu,
+    faculty = fi,
+    type = mgr,
+    author = Bc. Filip Petrovič,
+    gender = m,
+    advisor = {RNDr. Jiří Filipovič, Ph.D.},
+    title = {Framework for Parallel Kernels Autotuning},
+    TeXtitle = {Framework for Parallel Kernels Autotuning},
+    keywords = {autotuning, GPU programming, OpenCL, CUDA, kernel, optimization},
+    TeXkeywords = {autotuning, GPU programming, OpenCL, CUDA, kernel, optimization},
+    assignment = {}
+}
+
+\thesislong{abstract}
+{
+    The result of this thesis is a framework for autotuning of parallel kernels which are written in either OpenCL or CUDA language. The framework
+    includes advanced functionality such as support for composite kernels and online autotuning. The thesis describes API and internal structure of
+    the framework and presents several examples of its utilization for kernel optimization.
+}
+
+\thesislong{thanks}
+{
+    I would like to thank my supervisor Jiří Filipovič for his help and valuable advice. I would also like to thank my family for their support during
+    my work on the thesis.
+}
+
+%% Insert bibliography
+\usepackage{csquotes}
+\usepackage
+[
+    backend=biber,
+    style=numeric,
+    citestyle=numeric-comp,
+    sorting=none,
+    sortlocale=auto,
+    language=australian
+    %% More information at <http://mirrors.ctan.org/macros/latex/contrib/biblatex/doc/biblatex.pdf>
+]{biblatex}
+\addbibresource{references.bib}
+\nocite{*}
+
+%% Insert additional packages
+\usepackage{makeidx}
+\makeindex
+\usepackage{amsbsy}
+\usepackage{paralist}
+\usepackage{menukeys}
+\usepackage{float}
+
+%% Allow extra table formatting commands
+\usepackage{array}
+\usepackage{ragged2e}
+\newcolumntype{L}[1]{>{\RaggedRight\hspace{0pt}}p{#1}}
+\newcolumntype{R}[1]{>{\RaggedLeft\hspace{0pt}}p{#1}}
+
+%% Enable inclusion of code samples with coloring
+\usepackage{listings}
+\usepackage{color}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset
+{
+    frame=tb,
+    language=C,
+    aboveskip=3mm,
+    belowskip=3mm,
+    showstringspaces=false,
+    columns=flexible,
+    basicstyle={\small\ttfamily},
+    numbers=none,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{dkgreen},
+    stringstyle=\color{mauve},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=3
+}
+
+%% Equations and figures use same numbering
+\makeatletter
+\let\c@equation\c@figure
+\makeatother
+
+%% Make "thanks" section show on top of a page
+\makeatletter\thesis@load
+\makeatletter
+    \def\thesis@blocks@thanks{%
+    \ifx\thesis@thanks\undefined\else
+    \thesis@blocks@clear
+    \begin{alwayssingle}%
+    \chapter*{\thesis@@{thanksTitle}}%
+    \thesis@thanks
+    \end{alwayssingle}%
+    \fi}
+\makeatother
+
+\begin{document}
+\chapter{Introduction}
+Todo...
+
+\chapter{Autotuning in CUDA and OpenCL}
+Todo...
+
+\chapter{Conclusion}
+Todo...
+
+%% Print full bibliography, use biber.exe on .bcf file to generate bibliography
+{\csname captions\languagename\endcsname
+\makeatletter
+\thesis@selectLocale{\thesis@locale}\makeatother
+\printbibliography[heading=bibintoc]}
+
+\appendix
+\chapter{Appendix}
+Todo...
+
+\end{document}

@@ -1,0 +1,10 @@
+Source/*.aux
+Source/*.bbl
+Source/*.bcf
+Source/*.blg
+Source/*.idx
+Source/*.log
+Source/*.out
+Source/*.xml
+Source/*.gz
+Source/*.toc
