@@ -119,13 +119,13 @@
 
 \begin{document}
 \chapter{Introduction}
-In recent years, acceleration of complex computations using multi-core processors, graphics cards and other massively parallel devices has become
+In recent years, acceleration of complex computations using multi-core processors, graphics cards and other types of accelerators has become
 much more common. Currently, there are many devices developed by multiple vendors which differ in hardware architecture, performance and other
 attributes. In order to ensure portability of code written for particular device, several software APIs (application programming interfaces) such as
 OpenCL (Open Computing Language) or CUDA (Compute Unified Device Architecture) were designed. Code written in these APIs can be run on various
-devices, while always producing the same result. However, there is a problem with portability of performance. For example, code which was optimized
-for a GPU may run poorly on a regular multi-core processor. The problem also exists among multiple generations of devices developed by the same
-vendor, even if they have comparable parameters and theoretical performance.
+devices while producing the same result. However, there is a problem with portability of performance due to different hardware characteristics of
+these devices. For example, code which was optimized for a GPU may run poorly on a regular multi-core processor. The problem may also exist among
+devices developed by the same vendor, even if they have comparable parameters and theoretical performance.
 
 A costly solution to this problem is to manually optimize code for each utilized device. This has several significant disadvantages, such as
 a necessity to dedicate large amount of resources to write different versions of code and test which one performs best on a given device. Furthermore,
@@ -138,10 +138,10 @@ devices based on their hardware capabilities. Parametrized code is then launched
 best configuration for a particular device.
 
 In order to make autotuning easier to implement in applications, several frameworks were created. However, large number of these are focused
-only on a very small subset of computations. There are some frameworks which are more general, but their features are limited and only support
+only on a very small subset of computations. There are some frameworks which are more general, but their features are limited and usually only support
 simple usage scenarios. The aim of this thesis was to develop autotuning framework which would support more complex use cases, such as situations
 where computation is split into several smaller programs. Additionally, the framework should be written in a way which would allow its easy
-integration into existing software stacks and possibly combine autotuning with regular computation.
+integration into existing software and possibly combine autotuning with regular computation.
 
 The thesis is split into four main chapters. <Todo: add short description of each chapter.>
 
@@ -149,19 +149,19 @@ The thesis is split into four main chapters. <Todo: add short description of eac
 This chapter serves as an introduction to autotuning technique and includes description of compute APIs which are utilized by KTT (Kernel Tuning
 Toolkit)\footnote{Name of the autotuning framework developed as a part of the thesis.} - OpenCL and CUDA. Because both APIs provide relatively similar
 functionality, only OpenCL is described here in greater detail. Section about CUDA is mostly focused on explaining features which differ from OpenCL.
-It is worth mentioning that CUDA actually consists of two different APIs - high-level runtime API and low-level driver API. For the purpose of this
-thesis, only CUDA driver API will be further described, because the runtime API lacks features which are necessary to implement autotuning in CUDA.
+It is worth mentioning that CUDA actually consists of two different APIs - low-level driver API and high-level runtime API built on top of the driver
+API. For the purpose of this thesis, only CUDA driver API will be further described, because the runtime API lacks features which are necessary to
+implement autotuning in CUDA.
 
 \section{OpenCL}
 OpenCL is an API for developing primarily parallel applications which can be run on a range of different devices such as CPUs, GPUs and FPGAs
 (field-programmable gate arrays). An OpenCL application consists of two main parts. First part is a host program, which is typically executed on a CPU
-and is responsible for OpenCL device configuration, memory management and kernel execution. Second part is a kernel, which is a function executed on
-an OpenCL device and usually contains major part of a computation. Kernels are written in OpenCL C which is a language based on C programming
-language.
+and is responsible for OpenCL device configuration, memory management and launching of kernel. Second part is a kernel, which is a function executed
+on an OpenCL device and usually contains major part of a computation. Kernels are written in OpenCL C which is based on C programming language.
 
 \subsection{Host program in OpenCL}
-Host program is written in regular programming language, typically in C or C++. Its main objective is to successfully launch a kernel function. OpenCL
-API defines several important structures which are referenced from host program:
+Host program is written in a regular programming language, typically in C or C++. Its main objective is to successfully launch a kernel function.
+OpenCL API defines several important structures which are referenced from host program:
 \begin{itemize}
     \item cl\_context - serves as a holder of resources, similar to OS process, majority of other OpenCL structures have to be initialized inside a
     specific context
