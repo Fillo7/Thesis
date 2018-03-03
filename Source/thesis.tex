@@ -40,8 +40,8 @@
 
 \thesislong{thanks}
 {
-    I would like to thank my supervisor Jiří Filipovič for his help and valuable advice. I would also like to thank my family for their support during
-    my work on the thesis.
+    I would like to thank my supervisor Jiří Filipovič for his help and valuable advice, David Střelák and Jana Pazúriková for their feedback and work
+    on code examples. I would also like to thank my family for their support during my work on the thesis.
 }
 
 %% Insert bibliography
@@ -52,20 +52,24 @@
     style=numeric,
     citestyle=numeric-comp,
     sorting=none,
-    sortlocale=auto,
-    language=australian
+    sortlocale=auto
     %% More information at <http://mirrors.ctan.org/macros/latex/contrib/biblatex/doc/biblatex.pdf>
 ]{biblatex}
 \addbibresource{references.bib}
 \nocite{*}
 
-%% Insert additional packages
+%% Specify bibliography date format
+\DeclareFieldFormat{urldate}
+{
+    (visited on
+    \thefield{urlday}\addslash
+    \thefield{urlmonth}\addslash
+    \thefield{urlyear}\isdot)
+}
+
+%% Index generation
 \usepackage{makeidx}
 \makeindex
-\usepackage{amsbsy}
-\usepackage{paralist}
-\usepackage{menukeys}
-\usepackage{float}
 
 %% Allow extra table formatting commands
 \usepackage{array}
@@ -147,48 +151,89 @@ The thesis is split into four main chapters. <Todo: add short description of eac
 
 \chapter{Compute APIs and autotuning}
 This chapter serves as an introduction to autotuning technique and includes description of compute APIs which are utilized by KTT (Kernel Tuning
-Toolkit)\footnote{Name of the autotuning framework developed as a part of the thesis.} - OpenCL and CUDA. Because both APIs provide relatively similar
+Toolkit)\footnote{Name of autotuning framework developed as a part of the thesis.} -- OpenCL and CUDA. Because both APIs provide relatively similar
 functionality, only OpenCL is described here in greater detail. Section about CUDA is mostly focused on explaining features which differ from OpenCL.
-It is worth mentioning that CUDA actually consists of two different APIs - low-level driver API and high-level runtime API built on top of the driver
+It is worth mentioning that CUDA actually consists of two different APIs -- low-level driver API and high-level runtime API built on top of the driver
 API. For the purpose of this thesis, only CUDA driver API will be further described, because the runtime API lacks features which are necessary to
 implement autotuning in CUDA.
 
 \section{OpenCL}
 OpenCL is an API for developing primarily parallel applications which can be run on a range of different devices such as CPUs, GPUs and FPGAs
 (field-programmable gate arrays). An OpenCL application consists of two main parts. First part is a host program, which is typically executed on a CPU
-and is responsible for OpenCL device configuration, memory management and launching of kernel. Second part is a kernel, which is a function executed
+and is responsible for OpenCL device configuration, memory management and launching of kernels. Second part is a kernel, which is a function executed
 on an OpenCL device and usually contains major part of a computation. Kernels are written in OpenCL C which is based on C programming language.
 
 \subsection{Host program in OpenCL}
 Host program is written in a regular programming language, typically in C or C++. Its main objective is to successfully launch a kernel function.
 OpenCL API defines several important structures which are referenced from host program:
 \begin{itemize}
-    \item cl\_context - serves as a holder of resources, similar to OS process, majority of other OpenCL structures have to be initialized inside a
-    specific context
-    \item cl\_command\_queue - all commands which are executed directly on OpenCL device have to be submitted inside a command queue, it is possible
-    to initialize multiple command queues within a single context in order to overlap independent asynchronous operations
-    \item cl\_buffer - todo...
-    \item cl\_kernel - todo...
-    \item cl\_program - todo...
-    \item cl\_event - todo...
+    \item \textit{cl\_platform} -- References an OpenCL platform.
+    \item \textit{cl\_device} -- References an OpenCL device, which is used during context initialization.
+    \item \textit{cl\_context} -- Serves as a holder of resources, similar in functionality to an operating system process. Majority of other OpenCL
+    structures have to be tied to a specific context. Context is created for one or more OpenCL devices.
+    \item \textit{cl\_command\_queue} -- All commands which are executed directly on an OpenCL device have to be submitted inside a command queue. It
+    is possible to initialize multiple command queues within a single context in order to overlap independent asynchronous operations.
+    \item \textit{cl\_buffer} -- Data which is directly accessed by kernel has to be bound to an OpenCL buffer, this includes both scalar and vector
+    arguments. It is possible to specify buffer memory location (device or host memory) and access type (read-only, read-write, write-only).
+    \item \textit{cl\_program} -- A variable which references OpenCL program compiled from OpenCL C source file. Program can be shared by multiple
+    kernel objects.
+    \item \textit{cl\_kernel} -- An object used to reference a specific kernel. Consists of an OpenCL program, kernel function name (single program
+    can contain definitions of multiple kernel functions) and buffers which are utilized by the kernel.
+    \item \textit{cl\_event} -- Serves as a synchronization primitive for individual commands submitted to an OpenCL device. Can be used to retrieve
+    information about the corresponding command, such as status or execution duration.
 \end{itemize}
-
 Execution of an entire OpenCL application then typically consists of the following steps:
 \begin{itemize}
-    \item selection of target platform (eg. AMD, Intel, Nvidia) and device (eg. GeForce GTX 970)
+    \item selection of target platform (e.g., AMD, Intel, Nvidia) and device (e.g., Intel Core i5-4690, Nvidia GeForce GTX 970)
     \item initialization of OpenCL context and one or more command queues
     \item initialization of OpenCL buffers (either in host or dedicated device memory)
     \item compilation and execution of kernel function
-    \item transfer of data produced by kernel from OpenCL buffers into host memory (if data is located in dedicated device memory)
+    \item retrieval of data produced by kernel from OpenCL buffers into host memory (if data is located in dedicated device memory)
 \end{itemize}
 
-
-
-
 \subsection{Kernel in OpenCL}
-Todo...
+Code in a kernel source file is written from perspective of a single \textit{work-item}, which is the smallest OpenCL execution unit. Each work-item
+has its own \textit{private memory} (memory which is mapped to e.g., CPU or GPU register).
+
+Work-items are organized into a larger structure called \textit{work-group}, from which they all have access to \textit{local memory} (eg. CPU cache,
+GPU shared memory). Work-group is executed on a single \textit{compute unit} (e.g., CPU core, GPU streaming multiprocessor). It is possible for
+multiple work-groups to be executed on the same compute unit. OpenCL work-group can have up to three dimensions. Number and size of dimensions affects
+work-item indexing inside work-group.
+
+Individual work-groups are organized into \textit{NDRange} (N-Dimensional Range). At NDRange level, it is possible to address two types of memory --
+\textit{global memory} and \textit{constant memory}. Global memory (e.g., CPU main memory, GPU global memory) is usually very large but has high
+latency. On the other hand, constant memory generally has small capacity but lower latency. It can be utilized to store read-only data. Organization
+and indexing of work-groups inside NDRange works in the same way as for work-items inside work-group.
+
+Hierarchical organization into NDRange, work-groups and work-items allows for more intuitive mapping of computation tasks onto OpenCL kernels. Tasks
+are defined at the NDrange level, work-groups represent large chunks of a task which are executed in arbitrary order. The smallest operations (e.g.
+addition of two numbers) are mapped onto work-items.
+
+Figure \ref{vector_addition} contains a simple OpenCL kernel, which adds up elements from arrays \textit{a} and \textit{b}, then stores the result in
+array \textit{c}. Qualifier \textit{\_\_global} specified for the arguments means that they are stored in global memory. Function
+\textit{get\_global\_id(int)} is used to retrieve work-item index unique for the entire NDRange in specified dimension.
+\begin{figure}
+    \begin{lstlisting}
+    __kernel void vectorAddition(__global float* a, __global float* b, __global float* c)
+    {
+        int i = get_global_id(0);
+        c[i] = a[i] + b[i];
+    }
+    \end{lstlisting}
+    \caption{Vector addition in OpenCL.}
+    \label{vector_addition}
+\end{figure}
 
 \section{CUDA, comparison with OpenCL}
+CUDA is a parallel compute API developed by Nvidia Corporation. It works similarly to OpenCL, but there are also several differences which played an
+important role during the framework development:
+\begin{itemize}
+    \item CUDA is officially supported only on graphics cards released by Nvidia Corporation
+    \item Differences in terminology, same concepts have different terms in OpenCL and CUDA
+    \item Global indexing (i.e., NDrange indexing in OpenCL) works differently in CUDA
+\end{itemize}
+The following table contains terms used in OpenCL and their counterparts in CUDA.
+
 Todo...
 
 \section{Autotuning in compute APIs}
@@ -198,10 +243,10 @@ Todo...
 Todo...
 
 %% Print full bibliography, use biber.exe on .bcf file to generate bibliography
-{\csname captions\languagename\endcsname
+\csname captions\languagename\endcsname
 \makeatletter
 \thesis@selectLocale{\thesis@locale}\makeatother
-\printbibliography[heading=bibintoc]}
+\printbibliography[heading=bibintoc]
 
 \appendix
 \chapter{Appendix}
