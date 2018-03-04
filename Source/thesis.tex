@@ -26,8 +26,8 @@
     advisor = {RNDr. Jiří Filipovič, Ph.D.},
     title = {Framework for Parallel Kernels Autotuning},
     TeXtitle = {Framework for Parallel Kernels Autotuning},
-    keywords = {autotuning, GPU programming, OpenCL, CUDA, kernel, optimization},
-    TeXkeywords = {autotuning, GPU programming, OpenCL, CUDA, kernel, optimization},
+    keywords = {autotuning, parallel programming, OpenCL, CUDA, kernel, optimization},
+    TeXkeywords = {autotuning, parallel programming, OpenCL, CUDA, kernel, optimization},
     assignment = {}
 }
 
@@ -173,7 +173,7 @@ OpenCL API defines several important structures which are referenced from host p
     structures have to be tied to a specific context. Context is created for one or more OpenCL devices.
     \item \textit{cl\_command\_queue} -- All commands which are executed directly on an OpenCL device have to be submitted inside a command queue. It
     is possible to initialize multiple command queues within a single context in order to overlap independent asynchronous operations.
-    \item \textit{cl\_buffer} -- Data which is directly accessed by kernel has to be bound to an OpenCL buffer, this includes both scalar and vector
+    \item \textit{cl\_mem} -- Data which is directly accessed by kernel has to be bound to an OpenCL buffer, this includes both scalar and vector
     arguments. It is possible to specify buffer memory location (device or host memory) and access type (read-only, read-write, write-only).
     \item \textit{cl\_program} -- A variable which references OpenCL program compiled from OpenCL C source file. Program can be shared by multiple
     kernel objects.
@@ -206,7 +206,7 @@ latency. On the other hand, constant memory generally has small capacity but low
 and indexing of work-groups inside NDRange works in the same way as for work-items inside work-group.
 
 Hierarchical organization into NDRange, work-groups and work-items allows for more intuitive mapping of computation tasks onto OpenCL kernels. Tasks
-are defined at the NDrange level, work-groups represent large chunks of a task which are executed in arbitrary order. The smallest operations (e.g.
+are defined at the NDRange level, work-groups represent large chunks of a task which are executed in arbitrary order. The smallest operations (e.g.
 addition of two numbers) are mapped onto work-items.
 
 Figure \ref{vector_addition} contains a simple OpenCL kernel, which adds up elements from arrays \textit{a} and \textit{b}, then stores the result in
@@ -230,11 +230,40 @@ important role during the framework development:
 \begin{itemize}
     \item CUDA is officially supported only on graphics cards released by Nvidia Corporation
     \item Differences in terminology, same concepts have different terms in OpenCL and CUDA
-    \item Global indexing (i.e., NDrange indexing in OpenCL) works differently in CUDA
+    \item Global indexing (i.e., NDRange indexing in OpenCL) works differently in CUDA
 \end{itemize}
-The following table contains terms used in OpenCL and their counterparts in CUDA.
+Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CUDA.
 
-Todo...
+\begin{table}
+\begin{center}
+\begin{tabular}{|*{2}{p{5cm}|}}
+    \hline
+    OpenCL term & CUDA term \\
+    \hline
+    work-item & thread \\
+    work-group & thread block \\
+    NDRange & grid \\
+    compute unit & streaming multiprocessor \\
+    global memory & global memory \\
+    constant memory & constant memory \\
+    local memory & shared memory \\
+    private memory & local memory \\
+    cl\_platform & N/A \\
+    cl\_device\_id & CUdevice \\
+    cl\_context & CUcontext \\
+    cl\_command\_queue & CUstream \\
+    cl\_mem & CUdeviceptr \\
+    cl\_program & nvrtcProgram / CUmodule \\
+    cl\_kernel & CUfunction \\
+    cl\_event & CUevent \\
+    \hline
+\end{tabular}
+\end{center}
+\caption{Comparison between OpenCL and CUDA terminology.}
+\label{api_terms}
+\end{table}
+
+<Todo: Note on indexing differences>
 
 \section{Autotuning in compute APIs}
 Todo...
