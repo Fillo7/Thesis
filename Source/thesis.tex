@@ -198,6 +198,7 @@ Execution of an entire OpenCL application then typically consists of the followi
 \end{itemize}
 
 \subsection{Kernel in OpenCL}
+\label{kernel}
 Code in a kernel source file is written from perspective of a single \textit{work-item}, which is the smallest OpenCL execution unit. Each work-item
 has its own \textit{private memory} (memory which is mapped to e.g., CPU or GPU register).
 
@@ -292,12 +293,21 @@ manual code modification. However, automatic vectorization is not always optimal
 data types which are available in both OpenCL and CUDA. It is possible to control vector length with a tuning parameter, e.g., by using type aliases.
 
 \subsection{Data placement in different types of memory}
-Todo...
+Section \ref{kernel} described various memory types available in OpenCL, similar memory hierarchy can also be found in CUDA. In many cases, there are
+more valid memory types to choose from for data placement. The choice can have an effect on performance, for example accessing data from OpenCL local
+memory is usually faster than using global memory. The problem is that local memory capacity is limited and while on certain devices the data could
+fit into it, on other devices it would be necessary to use global memory instead. Having a single version of kernel which would utilize only global
+memory would be inefficient for large number of devices. This can be solved by using tuning parameter which controls the data memory placement.
 
 \chapter{Comparison of autotuning frameworks}
+This chapter presents several generic autotuning frameworks for parallel kernels. Each section describes one framework, its advantages, disadvantages
+and an example of its use. Frameworks which are not publicly available or focus only on a specific subset of computations are not discussed here. The
+final section of this chapter includes motivation for development of KTT framework.
+
+\section{CLTune}
 Todo...
 
-\section{Autotuning in compute APIs}
+\subsection{Autotuning}
 In context of compute APIs, the autotuning process usually involves adding parameters affecting performance to kernel source code and finding the
 optimal combination of these parameters. Figure \ref{constant_memory} contains a simple example of tuning parameter usage. The process in its basic
 form consists of the following main steps:
@@ -309,21 +319,12 @@ form consists of the following main steps:
     configurations depends on the utilized search method (e.g., full search, random search, utilization of heuristics).
     \item Retrieval of tuning results.
 \end{enumerate}
-\lstset{language=C}
-\begin{figure}
-    \begin{lstlisting}
-    #if USE_CONSTANT_MEMORY == 0
-    #define MEMORY_TYPE __global
-    #elif USE_CONSTANT_MEMORY == 1
-    #define MEMORY_TYPE __constant
-    #endif
-    
-    __kernel void directCoulombSum(MEMORY_TYPE float4* kernelData) 
-    ...
-    \end{lstlisting}
-    \caption{Parameter which affects memory placement of \textit{kernelData} variable.}
-    \label{constant_memory}
-\end{figure}
+
+\section{Kernel Tuner}
+Todo...
+
+\section{OpenTuner}
+Todo...
 
 \chapter{KTT framework}
 \label{ktt}
