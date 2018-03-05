@@ -103,6 +103,12 @@
     tabsize=3
 }
 
+\lstset
+{
+    emph={float4, define, elif, endif},
+    emphstyle={\color{blue}}
+}
+
 %% Equations and figures use same numbering
 \makeatletter
 \let\c@equation\c@figure
@@ -136,18 +142,18 @@ a necessity to dedicate large amount of resources to write different versions of
 new devices are released frequently and in order to efficiently utilize their capabilities, it is often necessary to rewrite old versions of code and
 repeat the optimization process again.
 
-An alternative solution is a technique called autotuning, where code includes parameters which affect performance depending on their value, for
-example a parameter which affects length of a vector type of a particular variable. Optimal values of these parameters might differ for various
+An alternative solution is a technique called autotuning, where program code contains parameters which affect performance depending on their value,
+for example a parameter which affects length of a vector type of a particular variable. Optimal values of these parameters might differ for various
 devices based on their hardware capabilities. Parametrized code is then launched repeatedly using different combinations of parameters to find out the
 best configuration for a particular device.
 
 In order to make autotuning easier to implement in applications, several frameworks were created. However, large number of these are focused
-only on a very small subset of computations. There are some frameworks which are more general, but their features are limited and usually only support
+only on a small subset of computations. There are some frameworks which are more general, but their features are limited and usually only support
 simple usage scenarios. The aim of this thesis was to develop autotuning framework which would support more complex use cases, such as situations
 where computation is split into several smaller programs. Additionally, the framework should be written in a way which would allow its easy
 integration into existing software and possibly combine autotuning with regular computation.
 
-The thesis is split into four main chapters. <Todo: add short description of each chapter.>
+The thesis is split into five main chapters. <Todo: add short description of each chapter.>
 
 \chapter{Compute APIs and autotuning}
 This chapter serves as an introduction to autotuning technique and includes description of compute APIs which are utilized by KTT (Kernel Tuning
@@ -229,21 +235,21 @@ CUDA is a parallel compute API developed by Nvidia Corporation. It works similar
 important role during the framework development:
 \begin{itemize}
     \item CUDA is officially supported only on graphics cards released by Nvidia Corporation
-    \item Differences in terminology, same concepts have different terms in OpenCL and CUDA
+    \item Differences in terminology, identical or similar concepts have different terms in OpenCL and CUDA
     \item Global indexing (i.e., NDRange indexing in OpenCL) works differently in CUDA
 \end{itemize}
-Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CUDA.
-
-\begin{table}
+Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CUDA. Due to several differences in design, some terms do not have an
+equivalent term in the other API.
+\begin{table}[h]
 \begin{center}
 \begin{tabular}{|*{2}{p{5cm}|}}
     \hline
     OpenCL term & CUDA term \\
-    \hline
-    work-item & thread \\
-    work-group & thread block \\
-    NDRange & grid \\
+    \toprule
     compute unit & streaming multiprocessor \\
+    NDRange & grid \\
+    work-group & thread block \\
+    work-item & thread \\
     global memory & global memory \\
     constant memory & constant memory \\
     local memory & shared memory \\
@@ -253,7 +259,7 @@ Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CU
     cl\_context & CUcontext \\
     cl\_command\_queue & CUstream \\
     cl\_mem & CUdeviceptr \\
-    cl\_program & nvrtcProgram / CUmodule \\
+    cl\_program & nvrtcProgram, CUmodule \\
     cl\_kernel & CUfunction \\
     cl\_event & CUevent \\
     \hline
@@ -263,9 +269,64 @@ Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CU
 \label{api_terms}
 \end{table}
 
-<Todo: Note on indexing differences>
+Difference in global indexing plays an important role during addition of tuning parameters which affect either grid dimensions or block dimensions.
+In OpenCL, the NDRange size is specified as total number of threads in a dimension. However, in CUDA the grid size is specified as number of threads
+in a dimension divided by number of blocks in that dimension. This would be rather inconvenient for porting autotuned programs from one API to the
+other. The problem will be further elaborated upon in chapter \ref{ktt}.
+
+\section{Possibilities for autotuning in compute APIs}
+Design of previously described APIs allows for a wide range of optimization opportunities, both inside kernel and host code. These optimizations can
+be implemented with usage of tuning parameters. While some of the parameters can be utilized only in limited range of applications, there are also
+several ones which can be implemented in larger number of computation tasks. This section provides a list of some of the most common parameters and
+explanation why they are used for autotuning.
+
+\subsection{Work-group (thread block) dimensions}
+Work-group dimensions specify how many work-items are included in a single work-group. Work-groups are executed on compute units, which are mapped
+onto, for example CPU cores or GPU multiprocessors. Performance of these devices may be vastly different and manually finding an optimal work-group
+size is difficult, which is a reason why this parameter usually makes an ideal candidate for autotuning.
+
+\subsection{Usage of vector data types}
+Modern processors contain vector registers that allow concurrent execution of a single instruction over multiple data which leads to a significant
+speed-up of certain types of computations. Kernel compilers attempt to automatically utilize these registers in order to speed up computation without
+manual code modification. However, automatic vectorization is not always optimal. There is an option to perform manual vectorization by using vector
+data types which are available in both OpenCL and CUDA. It is possible to control vector length with a tuning parameter, e.g., by using type aliases.
+
+\subsection{Data placement in different types of memory}
+Todo...
+
+\chapter{Comparison of autotuning frameworks}
+Todo...
 
 \section{Autotuning in compute APIs}
+In context of compute APIs, the autotuning process usually involves adding parameters affecting performance to kernel source code and finding the
+optimal combination of these parameters. Figure \ref{constant_memory} contains a simple example of tuning parameter usage. The process in its basic
+form consists of the following main steps:
+\begin{enumerate}
+    \item Definition of tuning parameters and their possible values, modification of kernel source file to support these parameters. This step is done
+    by a program developer.
+    \item Generating of configuration space, each configuration contains unique combination of parameters.
+    \item Space traversal, launching of kernel in each tested configuration and measurement of execution duration. Total number and order of tested
+    configurations depends on the utilized search method (e.g., full search, random search, utilization of heuristics).
+    \item Retrieval of tuning results.
+\end{enumerate}
+\lstset{language=C}
+\begin{figure}
+    \begin{lstlisting}
+    #if USE_CONSTANT_MEMORY == 0
+    #define MEMORY_TYPE __global
+    #elif USE_CONSTANT_MEMORY == 1
+    #define MEMORY_TYPE __constant
+    #endif
+    
+    __kernel void directCoulombSum(MEMORY_TYPE float4* kernelData) 
+    ...
+    \end{lstlisting}
+    \caption{Parameter which affects memory placement of \textit{kernelData} variable.}
+    \label{constant_memory}
+\end{figure}
+
+\chapter{KTT framework}
+\label{ktt}
 Todo...
 
 \chapter{Conclusion}
