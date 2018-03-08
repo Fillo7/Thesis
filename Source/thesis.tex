@@ -79,10 +79,11 @@
 
 %% Enable inclusion of code samples with coloring
 \usepackage{listings}
-\usepackage{color}
-\definecolor{dkgreen}{rgb}{0,0.6,0}
-\definecolor{gray}{rgb}{0.5,0.5,0.5}
-\definecolor{mauve}{rgb}{0.58,0,0.82}
+\usepackage{xcolor}
+\definecolor{darkgreen}{rgb}{0.0, 0.6, 0.0}
+\definecolor{darkred}{rgb}{0.6, 0.0, 0.0}
+\definecolor{lightblue}{rgb}{0.17, 0.57, 0.69}
+\definecolor{gray}{rgb}{0.5, 0.5, 0.5}
 
 \lstset
 {
@@ -96,8 +97,8 @@
     numbers=none,
     numberstyle=\tiny\color{gray},
     keywordstyle=\color{blue},
-    commentstyle=\color{dkgreen},
-    stringstyle=\color{mauve},
+    commentstyle=\color{darkgreen},
+    stringstyle=\color{darkred},
     breaklines=true,
     breakatwhitespace=true,
     tabsize=3
@@ -105,8 +106,10 @@
 
 \lstset
 {
-    emph={float4, define, elif, endif},
-    emphstyle={\color{blue}}
+    emph=[1]{float4, define, elif, endif, def, with, as, in},
+    emphstyle=[1]{\color{blue}},
+    emph=[2]{size\_t, Tuner},
+    emphstyle=[2]{\color{lightblue}}
 }
 
 %% Equations and figures use same numbering
@@ -301,27 +304,113 @@ memory would be inefficient for large number of devices. This can be solved by u
 
 \chapter{Comparison of autotuning frameworks}
 This chapter presents several generic autotuning frameworks for parallel kernels. Each section describes one framework, its advantages, disadvantages
-and an example of its use. Frameworks which are not publicly available or focus only on a specific subset of computations are not discussed here. The
-final section of this chapter includes motivation for development of KTT framework.
+and an example of its usage. Frameworks which are not publicly available or focus only on a specific subset of computations are not discussed here.
+The final section of this chapter includes motivation for development of KTT framework.
 
 \section{CLTune}
-Todo...
+CLTune \cite{cltune} is a framework for autotuning of OpenCL and CUDA kernels. It is freely available in form of a library and provides C++ interface
+for writing host programs. It is relatively easy to use and provides capabilities for tuning of single kernels, multiple configuration search
+strategies and result validation in a form of reference kernels.
 
-\subsection{Autotuning}
-In context of compute APIs, the autotuning process usually involves adding parameters affecting performance to kernel source code and finding the
-optimal combination of these parameters. Figure \ref{constant_memory} contains a simple example of tuning parameter usage. The process in its basic
-form consists of the following main steps:
+However, it also has several limitations. Among the most significant ones are lack of support for composite kernels, limited argument handling
+options and inability to validate kernel results with C or C++ function. The framework is no longer actively developed, so it is unlikely that new
+features will be introduced.
+
+Basic tuner configuration in CLTune consists of several main steps, which are listed below. KTT functionality, in its simplest form, is based on the
+same idea. Figure \ref{cltune-example} contains part of a program written in CLTune, which includes all the main steps.
 \begin{enumerate}
-    \item Definition of tuning parameters and their possible values, modification of kernel source file to support these parameters. This step is done
-    by a program developer.
-    \item Generating of configuration space, each configuration contains unique combination of parameters.
-    \item Space traversal, launching of kernel in each tested configuration and measurement of execution duration. Total number and order of tested
-    configurations depends on the utilized search method (e.g., full search, random search, utilization of heuristics).
-    \item Retrieval of tuning results.
+    \item Initialization of tuner by specifying target platform and device.
+    \item Addition of tuned kernel.
+    \item Addition of reference kernel for output validation.
+    \item Definition of tuning parameters.
+    \item Setup of kernel arguments.
+    \item Launch of the tuning process.
+    \item Retrieval of results.
 \end{enumerate}
+\begin{figure}
+    \begin{lstlisting}
+    cltune::Tuner tuner(platformIndex, deviceIndex);
+    size_t kernelId = tuner.AddKernel({"path/to/kernel.cl"}, "kernelName", ndRangeDimensions, workGroupDimensions);
+    tuner.SetReference({"path/to/reference_kernel.cl"}, "referenceKernelName", ndRangeDimensions, workGroupDimensions);
+    
+    tuner.AddParameter(kernelId, "VECTOR_TYPE", { 1, 2, 4, 8 });
+    tuner.AddParameter(kernelId, "USE_CONSTANT_MEMORY", { 0, 1 });
+    
+    tuner.AddArgumentInput(bufferA);
+    tuner.AddArgumentInput(bufferB);
+    tuner.AddArgumentScalar(helperVariable);
+    tuner.AddArgumentOutput(bufferResult);
+    
+    tuner.Tune();
+    tuner.PrintToScreen();
+    \end{lstlisting}
+    \caption{Host program written in CLTune.}
+    \label{cltune-example}
+\end{figure}
+
+In order to support tuning parameters, kernel source file needs to be modified as well. In case of CLTune, the tuner exports parameter values from
+given configuration to kernel by using preprocessor definitions. Code needs to be modified, so that the values have intended effect. Simple example
+of such modification is shown in figure \ref{cltune-example-kernel}.
+\begin{figure}
+    \begin{lstlisting}
+    #if USE_CONSTANT_MEMORY == 0
+    #define MEMORY_TYPE __global
+    #elif USE_CONSTANT_MEMORY == 1
+    #define MEMORY_TYPE __constant
+    #endif
+    
+    __kernel void tunedKernel(MEMORY_TYPE float* bufferA, ...)
+    {
+        ...
+    }
+    \end{lstlisting}
+    \caption{Adding support for autotuning to kernel via preprocessor macros.}
+    \label{cltune-example-kernel}
+\end{figure}
 
 \section{Kernel Tuner}
-Todo...
+Kernel Tuner \cite{kerneltuner} is another open-source kernel autotuning framework. It supports tuning of OpenCL and CUDA kernels as well as regular
+C functions, though in the last case, user is responsible for measuring execution duration. API is provided for Python. Compared to CLTune, it
+provides more utility methods, for example ability to set kernel compiler options, measuring execution duration in multiple iterations to increase
+accuracy and validating output with user-defined, precomputed answer rather than being restricted to reference kernel.
+
+Disadvantages include again lack of support for composite kernels and inability for integration into existing software. However, Kernel Tuner is still
+actively developed and some of these shortcomings may be eventually amended.
+
+Host program has to be written in similar fashion as in CLTune, preprocessor definitions for parameters are exported in the same way. Figure
+\ref{kerneltuner-example} contains major portion of host program written for Kernel Tuner.
+\begin{figure}
+    \begin{lstlisting}
+    def tune():
+    
+    with open('stencil.cl', 'r') as f:
+    kernel_string = f.read()
+    
+    problem_size = (4096, 2048)
+    size = numpy.prod(problem_size)
+    
+    x_old = numpy.random.randn(size).astype(numpy.float32)
+    x_new = numpy.copy(x_old)
+    args = [x_new, x_old]
+    
+    tune_params = OrderedDict()
+    tune_params["block_size_x"] = [32*i for i in range(1,9)]
+    tune_params["block_size_y"] = [2**i for i in range(6)]
+    
+    grid_div_x = ["block_size_x"]
+    grid_div_y = ["block_size_y"]
+    
+    return kernel_tuner.tune_kernel("stencil_kernel", kernel_string, problem_size,
+    args, tune_params, grid_div_x=grid_div_x, grid_div_y=grid_div_y,
+    verbose = True)
+    
+    
+    if __name__ == "__main__":
+    tune()
+    \end{lstlisting}
+    \caption{Host program written in Kernel Tuner. Source: \cite{kerneltuner-example}}
+    \label{kerneltuner-example}
+\end{figure}
 
 \section{OpenTuner}
 Todo...
