@@ -88,7 +88,7 @@
 \lstset
 {
     frame=tb,
-    language=C,
+    language=C++,
     aboveskip=3mm,
     belowskip=3mm,
     showstringspaces=false,
@@ -108,7 +108,7 @@
 {
     emph=[1]{float4, define, elif, endif, def, with, as, in},
     emphstyle=[1]{\color{blue}},
-    emph=[2]{size\_t, Tuner},
+    emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI},
     emphstyle=[2]{\color{lightblue}}
 }
 
@@ -417,7 +417,7 @@ Unlike CLTune and Kernel Tuner, OpenTuner \cite{opentuner} is an autotuning fram
 language. API is provided for Python. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. This
 involves, for example writing a method which adds parameter definitions from tuner-generated configurations to tuned program and compiles it. The
 other listed frameworks have this functionality already built-in. Another shortcoming is that the framework no longer seems to be actively developed
-with the latest update dating to <to do: add date>.
+with the latest update dating to October 2017.
 
 While the other frameworks use preprocessor definitions to export tuning parameters into code, OpenTuner does not have any specific way of parameter
 handling. The way parameters become visible in tuned code depends on capabilities of target programming language and on the user-written method for
@@ -477,7 +477,51 @@ The new tuner structure is further discussed in chapter \ref{ktt-structure}.
 
 \chapter{KTT API}
 \label{ktt-api}
-This chapter describes main parts of KTT framework API. Todo...
+KTT framework API provides users with methods which can be used to develop and tune OpenCL or CUDA applications. It is split into three major
+classes, some basic methods were inspired by CLTune. It is available in C++ language.
+
+KTT framework can be acquired from GitHub as a fully open-source library, prebuilt binaries are available for certain platforms. Manual library
+compilation is also possible by using build tool premake5, C++14 compiler and CUDA or OpenCL distribution. Supported operating systems include Linux
+and Windows.
+
+\section{Tuner class}
+Tuner class makes up the main part of KTT API. It includes methods which implement following functionality:
+\begin{itemize}
+    \item handling of kernels and kernel compositions
+    \item handling of kernel arguments
+    \item addition of tuning parameters and constraints
+    \item kernel running and tuning
+    \item kernel output validation
+    \item retrieval of tuning results
+    \item retrieval of information about available platforms and devices
+\end{itemize}
+
+\subsection{Tuner creation}
+In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructor available
+\ref{ktt-constructors}. They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
+queues. Indices are assigned to platforms and devices by KTT framework, they can be retrieved with a method.
+
+\begin{figure}
+    \begin{lstlisting}
+    explicit Tuner(const PlatformIndex platform, const DeviceIndex device);
+    explicit Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI computeAPI);
+    explicit Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI computeAPI, const uint32_t computeQueueCount);
+    \end{lstlisting}
+    \caption{Tuner constructors.}
+    \label{ktt-constructors}
+\end{figure}
+
+\subsection{Kernel handling}
+Todo...
+
+\subsection{Kernel argument handling}
+Todo...
+
+\section{Reference class}
+Todo...
+
+\section{Tuning Manipulator class}
+Todo...
 
 \chapter{KTT Structure}
 \label{ktt-structure}
