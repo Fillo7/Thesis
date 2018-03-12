@@ -276,7 +276,7 @@ equivalent term in the other API.
 Difference in global indexing plays an important role during addition of tuning parameters which affect either grid dimensions or block dimensions.
 In OpenCL, the NDRange size is specified as total number of threads in a dimension. However, in CUDA the grid size is specified as number of threads
 in a dimension divided by number of blocks in that dimension. This would be rather inconvenient for porting autotuned programs from one API to the
-other. The problem will be further elaborated upon in chapter \ref{ktt}.
+other. The problem will be further elaborated upon in chapters \ref{ktt-api} and \ref{ktt-structure}.
 
 \section{Possibilities for autotuning in compute APIs}
 Design of previously described APIs allows for a wide range of optimization opportunities, both inside kernel and host code. These optimizations can
@@ -413,10 +413,74 @@ Host program has to be written in similar fashion as in CLTune, preprocessor def
 \end{figure}
 
 \section{OpenTuner}
-Todo...
+Unlike CLTune and Kernel Tuner, OpenTuner \cite{opentuner} is an autotuning framework which can be used to tune programs written in essentially any
+language. API is provided for Python. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. This
+involves, for example writing a method which adds parameter definitions from tuner-generated configurations to tuned program and compiles it. The
+other listed frameworks have this functionality already built-in. Another shortcoming is that the framework no longer seems to be actively developed
+with the latest update dating to <to do: add date>.
 
-\chapter{KTT framework}
-\label{ktt}
+While the other frameworks use preprocessor definitions to export tuning parameters into code, OpenTuner does not have any specific way of parameter
+handling. The way parameters become visible in tuned code depends on capabilities of target programming language and on the user-written method for
+parameter export. Figure \ref{opentuner-example} contains an example of OpenTuner configuration for tuning of C code. Tuning parameters are added
+to code through compiler command line arguments.
+
+\begin{figure}
+    \begin{lstlisting}
+    class GccFlagsTuner(MeasurementInterface):
+    
+    def manipulator(self):
+    manipulator = ConfigurationManipulator()
+    manipulator.add_parameter(IntegerParameter(
+    'vectorType', 1, 2, 4, 8))
+    return manipulator
+    
+    def run(self, desired_result, input, limit):
+    cfg = desired_result.configuration.data
+    
+    gcc_cmd = 'g++ tuned_program.cpp '
+    gcc_cmd += '-VECTOR_TYPE='+ cfg['vectorType']
+    gcc_cmd += ' -o ./tmp.bin'
+    
+    compile_result = self.call_program(gcc_cmd)
+    assert compile_result['returncode'] == 0
+    
+    run_cmd = './tmp.bin'
+    run_result = self.call_program(run_cmd)
+    assert run_result['returncode'] == 0
+    
+    return Result(time=run_result['time'])
+    
+    def save_final_config(self, configuration):
+    print "Optimal vector type written to final_config.json:", configuration.data
+    self.manipulator().save_to_file(configuration.data, 'final_config.json')
+    \end{lstlisting}
+    \caption{Configuration of OpenTuner, source: \cite{opentuner}.}
+    \label{opentuner-example}
+\end{figure}
+
+\section{Development of new framework}
+Originally, CLTune was planned to be used as a basis of the new autotuning framework. Extra functionality should simply be added on top of the
+existing code structure. However, this has proved to be problematic. While CLTune API is written in a clean and user-friendly manner, its
+internal structure made it difficult to extend its functionality. Large part of the internal code is placed into a small number of very long methods
+which mix together operations such as argument handling and result validation with accessing compute API functions. This made it difficult to
+introduce new features without refactoring large amount of code.
+
+Eventually, it was decided to write a completely new framework, which is called Kernel Tuning Toolkit (KTT). Baseline portion of KTT API remains
+similar to CLTune, so it would be easy to port existing programs. However, the internal structure was completely rewritten from scratch, with only
+very small portions of CLTune code for following features being reused:
+\begin{itemize}
+    \item generating of kernel configurations
+    \item definition of tuning parameter constraints
+    \item configuration searcher based on simulated annealing
+\end{itemize}
+The new tuner structure is further discussed in chapter \ref{ktt-structure}.
+
+\chapter{KTT API}
+\label{ktt-api}
+This chapter describes main parts of KTT framework API. Todo...
+
+\chapter{KTT Structure}
+\label{ktt-structure}
 Todo...
 
 \chapter{Conclusion}
