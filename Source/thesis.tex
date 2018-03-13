@@ -108,7 +108,8 @@
 {
     emph=[1]{float4, define, elif, endif, def, with, as, in},
     emphstyle=[1]{\color{blue}},
-    emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI},
+    emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI, KernelId, ArgumentId, string, vector, DimensionVector, unique\_ptr,
+        TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation},
     emphstyle=[2]{\color{lightblue}}
 }
 
@@ -497,8 +498,8 @@ Tuner class makes up the main part of KTT API. It includes methods which impleme
 \end{itemize}
 
 \subsection{Tuner creation}
-In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructor available
-\ref{ktt-constructors}. They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
+In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructors available (figure 
+\ref{ktt-constructors}). They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
 queues. Indices are assigned to platforms and devices by KTT framework, they can be retrieved with a method.
 
 \begin{figure}
@@ -512,10 +513,42 @@ queues. Indices are assigned to platforms and devices by KTT framework, they can
 \end{figure}
 
 \subsection{Kernel handling}
-Todo...
+Kernels can be added to tuner from a file or C++ string (figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
+default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside DimensionVector
+objects, which are a part of KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be
+referenced by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels included inside composition. In
+order to use compositions, user additionally has to define a tuning manipulator class, whose usage is detailed in subsection <todo: add reference>.
+
+\begin{figure}
+    \begin{lstlisting}
+    KernelId addKernel(const std::string& source, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize);
+    KernelId addKernelFromFile(const std::string& filePath, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize);
+    KernelId addComposition(const std::string& compositionName, const std::vector<KernelId>& kernelIds, std::unique_ptr<TuningManipulator> manipulator);
+    \end{lstlisting}
+    \caption{Kernel addition methods.}
+    \label{ktt-kernel-methods}
+\end{figure}
 
 \subsection{Kernel argument handling}
-Todo...
+There are three types of kernel arguments supported by KTT -- vector, scalar and local memory arguments (figure \ref{ktt-argument-methods}). All
+arguments are referenced by using a handle provided by tuner. All argument addition methods are templated and support primitive data types (e.g.,
+int, float) as well as user-defined data types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts handle of a given
+kernel and corresponding arguments. This allows them to be shared among multiple kernels.
+
+Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from which
+argument data is accessed by kernel (device or host) and whether argument copy should be made by tuner. Todo...
+
+\begin{figure}
+    \begin{lstlisting}
+    ArgumentId addArgumentVector(const std::vector<T>& data, const ArgumentAccessType accessType);
+    ArgumentId addArgumentVector(std::vector<T>& data, const ArgumentAccessType accessType, const ArgumentMemoryLocation memoryLocation, const bool copyData);
+    ArgumentId addArgumentScalar(const T& data);
+    ArgumentId addArgumentLocal(const size_t localMemoryElementsCount);
+    void setKernelArguments(const KernelId id, const std::vector<ArgumentId>& argumentIds);
+    \end{lstlisting}
+    \caption{Argument handling methods.}
+    \label{ktt-argument-methods}
+\end{figure}
 
 \section{Reference class}
 Todo...
