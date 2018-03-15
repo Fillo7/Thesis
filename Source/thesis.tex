@@ -93,15 +93,14 @@
     belowskip=3mm,
     showstringspaces=false,
     columns=flexible,
-    basicstyle={\small\ttfamily},
+    basicstyle={\footnotesize\ttfamily},
     numbers=none,
     numberstyle=\tiny\color{gray},
     keywordstyle=\color{blue},
     commentstyle=\color{darkgreen},
     stringstyle=\color{darkred},
     breaklines=true,
-    breakatwhitespace=true,
-    tabsize=3
+    breakatwhitespace=true
 }
 
 \lstset
@@ -109,7 +108,8 @@
     emph=[1]{float4, define, elif, endif, def, with, as, in},
     emphstyle=[1]{\color{blue}},
     emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI, KernelId, ArgumentId, string, vector, DimensionVector, unique\_ptr,
-        TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation},
+        TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation, ModifierType, ModifierAction, ModifierDimension, ParameterPair,
+        OutputDescriptor, SearchMethod, function},
     emphstyle=[2]{\color{lightblue}}
 }
 
@@ -187,8 +187,8 @@ OpenCL API defines several important structures which are referenced from host p
     arguments. It is possible to specify buffer memory location (device or host memory) and access type (read-only, read-write, write-only).
     \item \textit{cl\_program} -- A variable which references OpenCL program compiled from OpenCL C source file. Program can be shared by multiple
     kernel objects.
-    \item \textit{cl\_kernel} -- An object used to reference a specific kernel. Consists of an OpenCL program, kernel function name (single program
-    can contain definitions of multiple kernel functions) and buffers which are utilized by the kernel.
+    \item \textit{cl\_kernel} -- An object used to reference a specific kernel. Holds information about OpenCL program, kernel function name (single
+    program can contain definitions of multiple kernel functions) and buffers which are utilized by the kernel.
     \item \textit{cl\_event} -- Serves as a synchronization primitive for individual commands submitted to an OpenCL device. Can be used to retrieve
     information about the corresponding command, such as status or execution duration.
 \end{itemize}
@@ -224,15 +224,15 @@ Figure \ref{vector_addition} contains a simple OpenCL kernel, which adds up elem
 array \textit{c}. Qualifier \textit{\_\_global} specified for the arguments means that they are stored in global memory. Function
 \textit{get\_global\_id(int)} is used to retrieve work-item index unique for the entire NDRange in specified dimension.
 \begin{figure}
-    \begin{lstlisting}
-    __kernel void vectorAddition(__global float* a, __global float* b, __global float* c)
-    {
-        int i = get_global_id(0);
-        c[i] = a[i] + b[i];
-    }
-    \end{lstlisting}
-    \caption{Vector addition in OpenCL.}
-    \label{vector_addition}
+\begin{lstlisting}
+__kernel void vectorAddition(__global float* a, __global float* b, __global float* c)
+{
+    int i = get_global_id(0);
+    c[i] = a[i] + b[i];
+}
+\end{lstlisting}
+\caption{Vector addition in OpenCL.}
+\label{vector_addition}
 \end{figure}
 
 \section{CUDA, comparison with OpenCL}
@@ -329,44 +329,44 @@ same idea. Figure \ref{cltune-example} contains part of a program written in CLT
     \item Retrieval of results.
 \end{enumerate}
 \begin{figure}
-    \begin{lstlisting}
-    cltune::Tuner tuner(platformIndex, deviceIndex);
-    size_t kernelId = tuner.AddKernel({"path/to/kernel.cl"}, "kernelName", ndRangeDimensions, workGroupDimensions);
-    tuner.SetReference({"path/to/reference_kernel.cl"}, "referenceKernelName", ndRangeDimensions, workGroupDimensions);
-    
-    tuner.AddParameter(kernelId, "VECTOR_TYPE", { 1, 2, 4, 8 });
-    tuner.AddParameter(kernelId, "USE_CONSTANT_MEMORY", { 0, 1 });
-    
-    tuner.AddArgumentInput(bufferA);
-    tuner.AddArgumentInput(bufferB);
-    tuner.AddArgumentScalar(helperVariable);
-    tuner.AddArgumentOutput(bufferResult);
-    
-    tuner.Tune();
-    tuner.PrintToScreen();
-    \end{lstlisting}
-    \caption{Host program written in CLTune.}
-    \label{cltune-example}
+\begin{lstlisting}
+cltune::Tuner tuner(platformIndex, deviceIndex);
+size_t kernelId = tuner.AddKernel({"path/to/kernel.cl"}, "kernelName", ndRangeDimensions, workGroupDimensions);
+tuner.SetReference({"path/to/reference_kernel.cl"}, "referenceKernelName", ndRangeDimensions, workGroupDimensions);
+
+tuner.AddParameter(kernelId, "VECTOR_TYPE", { 1, 2, 4, 8 });
+tuner.AddParameter(kernelId, "USE_CONSTANT_MEMORY", { 0, 1 });
+
+tuner.AddArgumentInput(bufferA);
+tuner.AddArgumentInput(bufferB);
+tuner.AddArgumentScalar(helperVariable);
+tuner.AddArgumentOutput(bufferResult);
+
+tuner.Tune();
+tuner.PrintToScreen();
+\end{lstlisting}
+\caption{Host program written in CLTune.}
+\label{cltune-example}
 \end{figure}
 
 In order to support tuning parameters, kernel source file needs to be modified as well. In case of CLTune, the tuner exports parameter values from
 given configuration to kernel by using preprocessor definitions. Code needs to be modified, so that the values have intended effect. Simple example
 of such modification is shown in figure \ref{cltune-example-kernel}.
 \begin{figure}
-    \begin{lstlisting}
-    #if USE_CONSTANT_MEMORY == 0
-    #define MEMORY_TYPE __global
-    #elif USE_CONSTANT_MEMORY == 1
-    #define MEMORY_TYPE __constant
-    #endif
-    
-    __kernel void tunedKernel(MEMORY_TYPE float* bufferA, ...)
-    {
-        ...
-    }
-    \end{lstlisting}
-    \caption{Adding support for autotuning to kernel via preprocessor macros.}
-    \label{cltune-example-kernel}
+\begin{lstlisting}
+#if USE_CONSTANT_MEMORY == 0
+#define MEMORY_TYPE __global
+#elif USE_CONSTANT_MEMORY == 1
+#define MEMORY_TYPE __constant
+#endif
+
+__kernel void tunedKernel(MEMORY_TYPE float* bufferA, ...)
+{
+    ...
+}
+\end{lstlisting}
+\caption{Adding support for autotuning to kernel via preprocessor macros.}
+\label{cltune-example-kernel}
 \end{figure}
 
 \section{Kernel Tuner}
@@ -381,36 +381,33 @@ actively developed and some of these shortcomings may be eventually amended.
 Host program has to be written in similar fashion as in CLTune, preprocessor definitions for parameters are exported in the same way. Figure
 \ref{kerneltuner-example} contains major portion of host program written for Kernel Tuner.
 \begin{figure}
-    \begin{lstlisting}
-    def tune():
-    
-    with open('stencil.cl', 'r') as f:
-    kernel_string = f.read()
-    
-    problem_size = (4096, 2048)
-    size = numpy.prod(problem_size)
-    
-    x_old = numpy.random.randn(size).astype(numpy.float32)
-    x_new = numpy.copy(x_old)
-    args = [x_new, x_old]
-    
-    tune_params = OrderedDict()
-    tune_params["block_size_x"] = [32*i for i in range(1,9)]
-    tune_params["block_size_y"] = [2**i for i in range(6)]
-    
-    grid_div_x = ["block_size_x"]
-    grid_div_y = ["block_size_y"]
-    
-    return kernel_tuner.tune_kernel("stencil_kernel", kernel_string, problem_size,
-    args, tune_params, grid_div_x=grid_div_x, grid_div_y=grid_div_y,
-    verbose = True)
-    
-    
-    if __name__ == "__main__":
+\begin{lstlisting}
+def tune():
+
+with open('stencil.cl', 'r') as f:
+kernel_string = f.read()
+
+problem_size = (4096, 2048)
+size = numpy.prod(problem_size)
+
+x_old = numpy.random.randn(size).astype(numpy.float32)
+x_new = numpy.copy(x_old)
+args = [x_new, x_old]
+
+tune_params = OrderedDict()
+tune_params["block_size_x"] = [32*i for i in range(1,9)]
+tune_params["block_size_y"] = [2**i for i in range(6)]
+
+grid_div_x = ["block_size_x"]
+grid_div_y = ["block_size_y"]
+
+return kernel_tuner.tune_kernel("stencil_kernel", kernel_string, problem_size, args, tune_params, grid_div_x=grid_div_x, grid_div_y=grid_div_y, verbose = True)
+
+if __name__ == "__main__":
     tune()
-    \end{lstlisting}
-    \caption{Host program written in Kernel Tuner. Source: \cite{kerneltuner-example}}
-    \label{kerneltuner-example}
+\end{lstlisting}
+\caption{Host program written in Kernel Tuner. Source: \cite{kerneltuner-example}}
+\label{kerneltuner-example}
 \end{figure}
 
 \section{OpenTuner}
@@ -418,7 +415,7 @@ Unlike CLTune and Kernel Tuner, OpenTuner \cite{opentuner} is an autotuning fram
 language. API is provided for Python. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. This
 involves, for example writing a method which adds parameter definitions from tuner-generated configurations to tuned program and compiles it. The
 other listed frameworks have this functionality already built-in. Another shortcoming is that the framework no longer seems to be actively developed
-with the latest update dating to October 2017.
+with majority of the development being done before 2017.
 
 While the other frameworks use preprocessor definitions to export tuning parameters into code, OpenTuner does not have any specific way of parameter
 handling. The way parameters become visible in tuned code depends on capabilities of target programming language and on the user-written method for
@@ -426,37 +423,36 @@ parameter export. Figure \ref{opentuner-example} contains an example of OpenTune
 to code through compiler command line arguments.
 
 \begin{figure}
-    \begin{lstlisting}
-    class GccFlagsTuner(MeasurementInterface):
-    
-    def manipulator(self):
-    manipulator = ConfigurationManipulator()
-    manipulator.add_parameter(IntegerParameter(
-    'vectorType', 1, 2, 4, 8))
-    return manipulator
-    
-    def run(self, desired_result, input, limit):
-    cfg = desired_result.configuration.data
-    
-    gcc_cmd = 'g++ tuned_program.cpp '
-    gcc_cmd += '-VECTOR_TYPE='+ cfg['vectorType']
-    gcc_cmd += ' -o ./tmp.bin'
-    
-    compile_result = self.call_program(gcc_cmd)
-    assert compile_result['returncode'] == 0
-    
-    run_cmd = './tmp.bin'
-    run_result = self.call_program(run_cmd)
-    assert run_result['returncode'] == 0
-    
-    return Result(time=run_result['time'])
-    
-    def save_final_config(self, configuration):
-    print "Optimal vector type written to final_config.json:", configuration.data
-    self.manipulator().save_to_file(configuration.data, 'final_config.json')
-    \end{lstlisting}
-    \caption{Configuration of OpenTuner, source: \cite{opentuner}.}
-    \label{opentuner-example}
+\begin{lstlisting}
+class GccFlagsTuner(MeasurementInterface):
+
+def manipulator(self):
+manipulator = ConfigurationManipulator()
+manipulator.add_parameter(IntegerParameter('vectorType', 1, 2, 4, 8))
+return manipulator
+
+def run(self, desired_result, input, limit):
+cfg = desired_result.configuration.data
+
+gcc_cmd = 'g++ tuned_program.cpp '
+gcc_cmd += '-VECTOR_TYPE='+ cfg['vectorType']
+gcc_cmd += ' -o ./tmp.bin'
+
+compile_result = self.call_program(gcc_cmd)
+assert compile_result['returncode'] == 0
+
+run_cmd = './tmp.bin'
+run_result = self.call_program(run_cmd)
+assert run_result['returncode'] == 0
+
+return Result(time=run_result['time'])
+
+def save_final_config(self, configuration):
+print "Optimal vector type written to final_config.json:", configuration.data
+self.manipulator().save_to_file(configuration.data, 'final_config.json')
+\end{lstlisting}
+\caption{Configuration of OpenTuner, source: \cite{opentuner}.}
+\label{opentuner-example}
 \end{figure}
 
 \section{Development of new framework}
@@ -500,55 +496,127 @@ Tuner class makes up the main part of KTT API. It includes methods which impleme
 \subsection{Tuner creation}
 In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructors available (figure 
 \ref{ktt-constructors}). They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
-queues. Indices are assigned to platforms and devices by KTT framework, they can be retrieved with a method.
+queues. OpenCL API with one compute queue is the default setting. Indices are assigned to platforms and devices by KTT framework, they can be retrieved
+with a method.
 
 \begin{figure}
-    \begin{lstlisting}
-    explicit Tuner(const PlatformIndex platform, const DeviceIndex device);
-    explicit Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI computeAPI);
-    explicit Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI computeAPI, const uint32_t computeQueueCount);
-    \end{lstlisting}
-    \caption{Tuner constructors.}
-    \label{ktt-constructors}
+\begin{lstlisting}
+Tuner(const PlatformIndex, const DeviceIndex)
+Tuner(const PlatformIndex, const DeviceIndex, const ComputeAPI)
+Tuner(const PlatformIndex, const DeviceIndex, const ComputeAPI, const uint32_t computeQueueCount)
+\end{lstlisting}
+\caption{Tuner constructors.}
+\label{ktt-constructors}
 \end{figure}
 
 \subsection{Kernel handling}
 Kernels can be added to tuner from a file or C++ string (figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
-default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside DimensionVector
+default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside \textit{DimensionVector}
 objects, which are a part of KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be
 referenced by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels included inside composition. In
 order to use compositions, user additionally has to define a tuning manipulator class, whose usage is detailed in subsection <todo: add reference>.
-
 \begin{figure}
-    \begin{lstlisting}
-    KernelId addKernel(const std::string& source, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize);
-    KernelId addKernelFromFile(const std::string& filePath, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize);
-    KernelId addComposition(const std::string& compositionName, const std::vector<KernelId>& kernelIds, std::unique_ptr<TuningManipulator> manipulator);
-    \end{lstlisting}
-    \caption{Kernel addition methods.}
-    \label{ktt-kernel-methods}
+\begin{lstlisting}
+KernelId addKernel(const std::string& source, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize)
+KernelId addKernelFromFile(const std::string& filePath, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize)
+KernelId addComposition(const std::string& compositionName, const std::vector<KernelId>& kernelIds, std::unique_ptr<TuningManipulator>)
+\end{lstlisting}
+\caption{Kernel addition methods.}
+\label{ktt-kernel-methods}
 \end{figure}
-
 \subsection{Kernel argument handling}
-There are three types of kernel arguments supported by KTT -- vector, scalar and local memory arguments (figure \ref{ktt-argument-methods}). All
-arguments are referenced by using a handle provided by tuner. All argument addition methods are templated and support primitive data types (e.g.,
-int, float) as well as user-defined data types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts handle of a given
-kernel and corresponding arguments. This allows them to be shared among multiple kernels.
+There are three types of kernel arguments supported by KTT -- vector, scalar and local memory (OpenCL) arguments (figure \ref{ktt-argument-methods}).
+All arguments are referenced by using a handle provided by tuner. Argument addition methods are templated and support primitive data types (e.g.,
+int, float) as well as user-defined data types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts kernel handle
+and corresponding argument handles. This allows them to be shared among multiple kernels.
 
-Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from which
-argument data is accessed by kernel (device or host) and whether argument copy should be made by tuner. Todo...
+Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from where
+argument data is accessed by kernel (device or host) and whether argument copy should be made by tuner. By default, copies of all vector arguments
+are made by tuner, so the original vectors remain modifiable by user without interfering with tuning process. In case argument is placed in host
+memory, it is possible to utilize zero-copy feature, which means that kernel has direct access to buffer which was initialized from host code. This
+functionality is supported by both CUDA and OpenCL. All of the vector argument handling options are illustrated with diagram \ref{ktt-buffer-diagram}.
 
 \begin{figure}
-    \begin{lstlisting}
-    ArgumentId addArgumentVector(const std::vector<T>& data, const ArgumentAccessType accessType);
-    ArgumentId addArgumentVector(std::vector<T>& data, const ArgumentAccessType accessType, const ArgumentMemoryLocation memoryLocation, const bool copyData);
-    ArgumentId addArgumentScalar(const T& data);
-    ArgumentId addArgumentLocal(const size_t localMemoryElementsCount);
-    void setKernelArguments(const KernelId id, const std::vector<ArgumentId>& argumentIds);
-    \end{lstlisting}
-    \caption{Argument handling methods.}
-    \label{ktt-argument-methods}
+\begin{lstlisting}
+ArgumentId addArgumentVector(const std::vector<T>& data, const ArgumentAccessType)
+ArgumentId addArgumentVector(std::vector<T>& data, const ArgumentAccessType, const ArgumentMemoryLocation, const bool copyData)
+ArgumentId addArgumentScalar(const T& data)
+ArgumentId addArgumentLocal(const size_t localMemoryElementsCount)
+void setKernelArguments(const KernelId, const std::vector<ArgumentId>&)
+\end{lstlisting}
+\caption{Argument handling methods.}
+\label{ktt-argument-methods}
 \end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=125mm]{resources/ktt_buffer_diagram.png}
+\end{center}
+\caption{Vector argument handling options in KTT framework. Each box represents one copy of a buffer.}
+\label{ktt-buffer-diagram}
+\end{figure}
+
+\subsection{Tuning parameters and constraints}
+Tuning parameters are specified for kernels with a name and list of valid values. Both integer and floating-point values are supported. Before kernel
+tuning begins, configurations for each combination of kernel parameter values are generated. For example, adding parameter A with values 1 and 2, and
+parameter B with values 5 and 10 will result in four configurations being generated -- {A1, B5}, {A1, B10}, {A2, B5} and {A2, B10}. Tuned kernel is
+then launched with parameter definitions prepended to kernel source code based on the current configuration.
+
+Some tuning parameters may additionally affect global and local sizes of tuned kernel. This is useful, for example in cases where parameter in kernel
+source code modifies amount of work done by a single work-item and therefore changes total number of needed work-items. Each dimension can be modified
+separately, supported modifiers include addition, subtraction, multiplication and division.
+
+If certain combination of tuning parameters are invalid or unsupported by kernel source code, they can be eliminated by using parameter constraints.
+Constraint is a function which accepts list of parameter values for specified parameters and returns a boolean value which signifies whether the values
+are valid or not. Constraint conditions are defined by user.
+
+Tuning parameters for kernel compositions are added separately and are independent from kernels. Individual kernels are not affected by composition
+parameters either.
+
+\begin{figure}
+\begin{lstlisting}
+void addParameter(const KernelId, const std::string& parameterName, const std::vector<size_t>& parameterValues)
+void addParameterDouble(const KernelId, const std::string& parameterName, const std::vector<double>& parameterValues)
+void addParameter(const KernelId, const std::string& parameterName, const std::vector<size_t>& parameterValues, const ModifierType, const ModifierAction, const ModifierDimension)
+void addConstraint(const KernelId, const std::function<bool(std::vector<size_t>)>& constraintFunction, const std::vector<std::string>& parameterNames)
+\end{lstlisting}
+\caption{Tuning parameter and constraint addition methods.}
+\label{ktt-parameter-methods}
+\end{figure}
+
+\subsection{Kernel tuning and running}
+KTT supports offline and online kernel tuning as well as regular kernel running. In offline tuning, kernel configurations are tested iteratively one
+after another without interruption. This mode is strictly focused on finding the best performing configuration, retrieval of kernel output by user and
+swapping of kernel argument data between configurations is not possible. On the other hand, it allows efficient validation of output. Because the
+argument data remains the same for all configurations, the reference output needs to be computed only once.
+
+In online tuning, single configuration is tested at time, enabling combination with kernel running. It also allows kernel output retrieval with
+KTT built-in structure \textit{OutputDescriptor}. This structure specifies handle of argument to be retrieved, output memory location and optionally
+size of the retrieved data, which is useful in case only part of the argument is needed. Online tuning also enables swapping of argument data between
+each configuration, though if validation is enabled, reference output needs to be recomputed every time new configuration is run.
+
+In both modes, the order and number of tested configurations depends on utilized search method. KTT currently supports four search methods -- full
+search, random search, simulated annealing and Markov chain Monte Carlo. Full search simply explores all configurations iteratively. The other three
+methods allow specification of a fraction parameter which controls number of explored configurations (e.g., setting fraction to 0.5 will result in
+50\% of all configurations being tested). In random search, the explored configurations are chosen randomly, while the last two methods employ
+probabilistic techniques in order to find configurations with good performance more quickly.
+
+Kernel running supports output retrieval in same fashion as online tuning. However, the configuration to run kernel with is specified by user. Validation
+is not performed during kernel running.
+
+\begin{figure}
+\begin{lstlisting}
+void tuneKernel(const KernelId)
+void tuneKernelByStep(const KernelId, const std::vector<OutputDescriptor>& output)
+void runKernel(const KernelId, const std::vector<ParameterPair>& configuration, const std::vector<OutputDescriptor>& output)
+void setSearchMethod(const SearchMethod, const std::vector<double>& arguments)
+\end{lstlisting}
+\caption{Kernel tuning and running methods.}
+\label{ktt-tuning-methods}
+\end{figure}
+
+\subsection{Output validation}
+Todo...
 
 \section{Reference class}
 Todo...
