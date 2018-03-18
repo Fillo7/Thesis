@@ -109,7 +109,7 @@
     emphstyle=[1]{\color{blue}},
     emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI, KernelId, ArgumentId, string, vector, DimensionVector, unique\_ptr,
         TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation, ModifierType, ModifierAction, ModifierDimension, ParameterPair,
-        OutputDescriptor, SearchMethod, function},
+        OutputDescriptor, SearchMethod, function, ValidationMethod, ReferenceClass, PrintFormat, ostream, PlatformInfo, DeviceInfo, GlobalSizeType},
     emphstyle=[2]{\color{lightblue}}
 }
 
@@ -481,6 +481,9 @@ KTT framework can be acquired from GitHub as a fully open-source library, prebui
 compilation is also possible by using build tool premake5, C++14 compiler and CUDA or OpenCL distribution. Supported operating systems include Linux
 and Windows.
 
+The described API corresponds to version 0.6 of KTT framework. It is the first release candidate version and contains all of the functionality that was
+planned to be implemented as part of this thesis.
+
 \section{Tuner class}
 Tuner class makes up the main part of KTT API. It includes methods which implement following functionality:
 \begin{itemize}
@@ -566,7 +569,7 @@ Some tuning parameters may additionally affect global and local sizes of tuned k
 source code modifies amount of work done by a single work-item and therefore changes total number of needed work-items. Each dimension can be modified
 separately, supported modifiers include addition, subtraction, multiplication and division.
 
-If certain combination of tuning parameters are invalid or unsupported by kernel source code, they can be eliminated by using parameter constraints.
+If certain combinations of tuning parameters are invalid or unsupported by kernel source code, they can be eliminated by using parameter constraints.
 Constraint is a function which accepts list of parameter values for specified parameters and returns a boolean value which signifies whether the values
 are valid or not. Constraint conditions are defined by user.
 
@@ -601,8 +604,8 @@ methods allow specification of a fraction parameter which controls number of exp
 50\% of all configurations being tested). In random search, the explored configurations are chosen randomly, while the last two methods employ
 probabilistic techniques in order to find configurations with good performance more quickly.
 
-Kernel running supports output retrieval in same fashion as online tuning. However, the configuration to run kernel with is specified by user. Validation
-is not performed during kernel running.
+Kernel running supports output retrieval in same fashion as online tuning. However, kernel configuration is specified by user in this case. Output
+validation is not performed during kernel running.
 
 \begin{figure}
 \begin{lstlisting}
@@ -616,7 +619,89 @@ void setSearchMethod(const SearchMethod, const std::vector<double>& arguments)
 \end{figure}
 
 \subsection{Output validation}
-Todo...
+Kernel output can be validated in two ways -- with a reference class or a reference kernel. In former case, user has to implement a class which
+includes a method that computes reference output on a CPU. Tuner then compares this output with result produced by tuned kernel. If difference in tuned
+output at certain index is detected, given kernel configuration is considered invalid. More details about reference class can be found in section <todo: add link>.
+The latter case works similarly, difference is that reference output is computed by a kernel with specified configuration. Both methods support
+validation of multiple kernel arguments. It is also possible to only check subpart of the argument, which is useful when result is shorter than length
+of entire argument.
+
+When kernel arguments with floating-point data type are validated, user can choose one of the multiple validation techniques and a tolerance threshold.
+If tuned output differs slightly from reference output, but remains within the threshold, it is still considered correct. Validation techniques include
+side by side comparison where result difference is calculated and compared to threshold for each pair of elements with corresponding index in reference
+and tuned output. Other technique is absolute difference, where the differences between individual pairs are summed up and only the resulting sum is
+compared to threshold. Users additionally have an option to add a custom comparator for specified argument. Comparator is a method which receives two
+values and decides whether they are equal. Comparators are mandatory for arguments with user-defined data types as the tuner is only able to validate
+arguments with built-in data types by default.
+
+\begin{figure}
+\begin{lstlisting}
+void setReferenceKernel(const KernelId id, const KernelId referenceId, const std::vector<ParameterPair>& referenceConfiguration,
+const std::vector<ArgumentId>& validatedArgumentIds);
+void setReferenceClass(const KernelId, std::unique_ptr<ReferenceClass>, const std::vector<ArgumentId>& validatedArgumentIds);
+void setValidationMethod(const ValidationMethod, const double toleranceThreshold);
+void setValidationRange(const ArgumentId, const size_t range);
+void setArgumentComparator(const ArgumentId, const std::function<bool(const void*, const void*)>& comparator);
+\end{lstlisting}
+\caption{Output validation methods.}
+\label{ktt-validation-methods}
+\end{figure}
+
+\subsection{Tuning results retrieval}
+Each tuning result includes kernel configuration (list of parameter values, global and local sizes) and corresponding duration of computation. List of
+all tuning results for specified kernel can be printed either to a C++ output stream or a file. Supported print formats include verbose format intended
+for log files or terminals and CSV (comma-separated values) format which is useful for processing and analysis of results.
+
+List of parameter values for best known configuration can also be retrieved programmatically through API, which is useful for combining online tuning
+with kernel running.
+
+\begin{figure}
+\begin{lstlisting}
+void printResult(const KernelId, std::ostream& outputTarget, const PrintFormat) const;
+void printResult(const KernelId, const std::string& filePath, const PrintFormat) const;
+std::vector<ParameterPair> getBestConfiguration(const KernelId) const;
+\end{lstlisting}
+\caption{Result retrieval methods.}
+\label{ktt-result-methods}
+\end{figure}
+
+\subsection{Platforms and devices information retrieval}
+When using KTT framework for the first time on a system, it is useful to retrieve indices for available platforms and devices, which are then used for
+proper tuner initialization. The assigned indices and corresponding platform and device names can be printed to specified C++ output stream. It is
+furthermore possible to retrieve more detailed information about individual platforms and devices, such as list of supported extensions, memory
+capacities, number of compute units and others.
+
+\begin{figure}
+\begin{lstlisting}
+void printComputeAPIInfo(std::ostream& outputTarget) const;
+std::vector<PlatformInfo> getPlatformInfo() const;
+std::vector<DeviceInfo> getDeviceInfo(const PlatformIndex) const;
+DeviceInfo getCurrentDeviceInfo() const;
+\end{lstlisting}
+\caption{Information retrieval methods.}
+\label{ktt-information-methods}
+\end{figure}
+
+\subsection{Other notable methods}
+Other notable API methods include a method for specification of kernel compiler options, choice of a global size notation and an option to enable
+automatic global size correction. Compiler options can be specified as a string of individual flags separated by a white space.
+
+Choice of global size notation allows using OpenCL NDRange dimension specification for CUDA grid and vice versa. This allows elimination of one of the
+notable differences between OpenCL and CUDA API in host code and makes it easier to port programs written in one API to the other.
+
+Automatic global size correction ensures that global size is always a multiple of local size, which is a necessary requirement for running kernels
+in OpenCL and also in CUDA, if OpenCL global size notation option is used. Framework performs an automatic roundup of global size to the nearest higher
+multiple of local size. Enabling this behaviour is useful when multiple parameters which affect thread sizes are present.
+
+\begin{figure}
+\begin{lstlisting}
+void setCompilerOptions(const std::string& options);
+void setGlobalSizeType(const GlobalSizeType);
+void setAutomaticGlobalSizeCorrection(const bool flag);
+\end{lstlisting}
+\caption{Other notable methods.}
+\label{ktt-utility-methods}
+\end{figure}
 
 \section{Reference class}
 Todo...
@@ -626,6 +711,10 @@ Todo...
 
 \chapter{KTT Structure}
 \label{ktt-structure}
+Todo...
+
+\chapter{KTT usage examples}
+\label{ktt-usage}
 Todo...
 
 \chapter{Conclusion}
