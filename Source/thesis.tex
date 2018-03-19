@@ -24,17 +24,17 @@
     author = Bc. Filip Petrovič,
     gender = m,
     advisor = {RNDr. Jiří Filipovič, Ph.D.},
-    title = {Framework for Parallel Kernels Autotuning},
-    TeXtitle = {Framework for Parallel Kernels Autotuning},
-    keywords = {autotuning, parallel programming, OpenCL, CUDA, kernel, optimization},
-    TeXkeywords = {autotuning, parallel programming, OpenCL, CUDA, kernel, optimization},
+    title = {Framework for Parallel Kernels Auto-tuning},
+    TeXtitle = {Framework for Parallel Kernels Auto-tuning},
+    keywords = {auto-tuning, parallel programming, OpenCL, CUDA, kernel, optimization},
+    TeXkeywords = {auto-tuning, parallel programming, OpenCL, CUDA, kernel, optimization},
     assignment = {}
 }
 
 \thesislong{abstract}
 {
-    The result of this thesis is a framework for autotuning of parallel kernels which are written in either OpenCL or CUDA language. The framework
-    includes advanced functionality such as support for composite kernels and online autotuning. The thesis describes API and internal structure of
+    The result of this thesis is a framework for auto-tuning of parallel kernels which are written in either OpenCL or CUDA language. The framework
+    includes advanced functionality such as support for composite kernels and online auto-tuning. The thesis describes API and internal structure of
     the framework and presents several examples of its utilization for kernel optimization.
 }
 
@@ -135,47 +135,59 @@
 \chapter{Introduction}
 In recent years, acceleration of complex computations using multi-core processors, graphics cards and other types of accelerators has become
 much more common. Currently, there are many devices developed by multiple vendors which differ in hardware architecture, performance and other
-attributes. In order to ensure portability of code written for particular device, several software APIs (application programming interfaces) such as
+attributes. In order to support application development for these devices, several software APIs (application programming interfaces) such as
 OpenCL (Open Computing Language) or CUDA (Compute Unified Device Architecture) were designed. Code written in these APIs can be run on various
 devices while producing the same result. However, there is a problem with portability of performance due to different hardware characteristics of
 these devices. For example, code which was optimized for a GPU may run poorly on a regular multi-core processor. The problem may also exist among
-devices developed by the same vendor, even if they have comparable parameters and theoretical performance.
+different generations of devices developed by the same vendor, even if they have comparable parameters and theoretical performance.
 
 A costly solution to this problem is to manually optimize code for each utilized device. This has several significant disadvantages, such as
 a necessity to dedicate large amount of resources to write different versions of code and test which one performs best on a given device. Furthermore,
 new devices are released frequently and in order to efficiently utilize their capabilities, it is often necessary to rewrite old versions of code and
 repeat the optimization process again.
 
-An alternative solution is a technique called autotuning, where program code contains parameters which affect performance depending on their value,
-for example a parameter which affects length of a vector type of a particular variable. Optimal values of these parameters might differ for various
-devices based on their hardware capabilities. Parametrized code is then launched repeatedly using different combinations of parameters to find out the
-best configuration for a particular device.
+An alternative solution is a technique called auto-tuning where a system, which supports this technique, is capable of optimizing its running parameters
+in order to perform its task more efficiently. Auto-tuning is a general technique with broad range of applications, which include areas such as network
+protocols, compilers and database systems. This thesis focuses on a specific form of auto-tuning called code variant auto-tuning and its application on
+programs written in OpenCL and CUDA API. In this version of auto-tuning, program code contains parameters which, depending on their value, affect
+performance of computation on a particular device. For example, there might be a parameter which controls length of a vector type of some variable.
+Optimal values of these parameters might differ for various devices based on their hardware capabilities. Parametrized code is then launched repeatedly
+using different combinations of parameters in order to find the best configuration for a particular device empirically.
 
-In order to make autotuning easier to implement in applications, several frameworks were created. However, large number of these are focused
-only on a small subset of computations. There are some frameworks which are more general, but their features are limited and usually only support
-simple usage scenarios. The aim of this thesis was to develop autotuning framework which would support more complex use cases, such as situations
-where computation is split into several smaller programs. Additionally, the framework should be written in a way which would allow its easy
-integration into existing software and possibly combine autotuning with regular computation.
+To make the code variant auto-tuning process easier to implement in previously mentioned APIs, several frameworks were created. However, large number of
+these are focused on domain-specific computations. There are some frameworks which are more general, but their features are limited and usually only
+support simpler usage scenarios. The aim of this thesis was to develop an auto-tuning framework which would support more complex use cases, such as
+situations where computation is split into several smaller functions. Additionally, the framework should be written in a way which would allow its easy
+integration into existing software and possibly combine auto-tuning with regular computation.
 
-The thesis is split into five main chapters. <Todo: add short description of each chapter.>
+Apart from introduction and conclusion, the thesis is split into five main chapters. Chapter one provides description of two compute APIs supported
+by the new framework. It also includes possible areas of auto-tuning utilization in these APIs. Second chapter presents several existing auto-tuning
+frameworks and compares their strengths and weaknesses. Afterwards, it lists reasons why a new framework was developed.
 
-\chapter{Compute APIs and autotuning}
-This chapter serves as an introduction to autotuning technique and includes description of compute APIs which are utilized by KTT (Kernel Tuning
-Toolkit)\footnote{Name of autotuning framework developed as a part of the thesis.} -- OpenCL and CUDA. Because both APIs provide relatively similar
+The following two chapters are dedicated to KTT (Kernel Tuning Toolkit) framework, which was developed in this thesis. The former is focused on
+describing its public API while the latter provides overview of its internal structure. The fifth and final chapter presents several scenarios of the
+new framework's utilization.
+
+\chapter{Compute APIs and possibilities for auto-tuning}
+This chapter includes description of compute APIs which are utilized by KTT framework -- OpenCL and CUDA. Because both APIs provide relatively similar
 functionality, only OpenCL is described here in greater detail. Section about CUDA is mostly focused on explaining features which differ from OpenCL.
 It is worth mentioning that CUDA actually consists of two different APIs -- low-level driver API and high-level runtime API built on top of the driver
-API. For the purpose of this thesis, only CUDA driver API will be further described, because the runtime API lacks features which are necessary to
-implement autotuning in CUDA.
+API. This thesis includes description of the driver API only, because the runtime API lacks features which are necessary to implement auto-tuning in CUDA.
+
+The final section of this chapter provides a list of auto-tuning opportunities in these APIs.
 
 \section{OpenCL}
-OpenCL is an API for developing primarily parallel applications which can be run on a range of different devices such as CPUs, GPUs and FPGAs
-(field-programmable gate arrays). An OpenCL application consists of two main parts. First part is a host program, which is typically executed on a CPU
-and is responsible for OpenCL device configuration, memory management and launching of kernels. Second part is a kernel, which is a function executed
-on an OpenCL device and usually contains major part of a computation. Kernels are written in OpenCL C which is based on C programming language.
+OpenCL is an API for developing primarily parallel applications which can be run on a range of different devices such as CPUs, GPUs and certain
+accelerators. It is developed by Khronos Group, which is a consortium of several independent companies. OpenCL is therefore designed to support
+hardware devices from multiple vendors. An OpenCL application consists of two main parts. First part is a host program, which is typically executed on
+a CPU and is responsible for OpenCL device configuration, memory management and launching of kernels. Second part is a kernel, which is a function
+executed on an OpenCL device and usually contains computationally intensive part of a program. Kernels are written in OpenCL C which is based on C
+programming language.
 
 \subsection{Host program in OpenCL}
-Host program is written in a regular programming language, typically in C or C++. Its main objective is to successfully launch a kernel function.
-OpenCL API defines several important structures which are referenced from host program:
+Host program is written in a standard programming language, for example C or C++. It can handle regular inexpensive tasks such as data preparation,
+input processing, network communication and others. In relation to OpenCL, its objectives include configuration of kernels, their launch,
+synchronization and retrieval of results. OpenCL API defines several important structures which can be utilized to fulfill this goal.
 \begin{itemize}
     \item \textit{cl\_platform} -- References an OpenCL platform.
     \item \textit{cl\_device} -- References an OpenCL device, which is used during context initialization.
@@ -192,7 +204,7 @@ OpenCL API defines several important structures which are referenced from host p
     \item \textit{cl\_event} -- Serves as a synchronization primitive for individual commands submitted to an OpenCL device. Can be used to retrieve
     information about the corresponding command, such as status or execution duration.
 \end{itemize}
-Execution of an entire OpenCL application then typically consists of the following steps:
+Execution of an OpenCL application then typically consists of the following main steps:
 \begin{itemize}
     \item selection of target platform (e.g., AMD, Intel, Nvidia) and device (e.g., Intel Core i5-4690, Nvidia GeForce GTX 970)
     \item initialization of OpenCL context and one or more command queues
@@ -203,25 +215,35 @@ Execution of an entire OpenCL application then typically consists of the followi
 
 \subsection{Kernel in OpenCL}
 \label{kernel}
-Code in a kernel source file is written from perspective of a single \textit{work-item}, which is the smallest OpenCL execution unit. Each work-item
+Code in a kernel source file is written from a perspective of single \textit{work-item}, which is the smallest OpenCL execution unit. Each work-item
 has its own \textit{private memory} (memory which is mapped to e.g., CPU or GPU register).
 
-Work-items are organized into a larger structure called \textit{work-group}, from which they all have access to \textit{local memory} (eg. CPU cache,
-GPU shared memory). Work-group is executed on a single \textit{compute unit} (e.g., CPU core, GPU streaming multiprocessor). It is possible for
-multiple work-groups to be executed on the same compute unit. OpenCL work-group can have up to three dimensions. Number and size of dimensions affects
-work-item indexing inside work-group.
+Work-items are organized into a larger structure called \textit{work-group}, from which they all have access to \textit{local memory} (e.g., GPU shared
+memory). Work-group is executed on a single \textit{compute unit} (e.g., CPU core, GPU streaming multiprocessor). It is possible for multiple work-groups
+to be executed on the same compute unit. OpenCL work-group can have up to three dimensions. Number and size of dimensions affects work-item indexing
+within work-group.
 
 Individual work-groups are organized into \textit{NDRange} (N-Dimensional Range). At NDRange level, it is possible to address two types of memory --
 \textit{global memory} and \textit{constant memory}. Global memory (e.g., CPU main memory, GPU global memory) is usually very large but has high
 latency. On the other hand, constant memory generally has small capacity but lower latency. It can be utilized to store read-only data. Organization
-and indexing of work-groups inside NDRange works in the same way as for work-items inside work-group.
+and indexing of work-groups inside NDRange works in the same way as for work-items within work-group. The entire hierarchy is illustrated in picture
+\ref{opencl-hierarchy}.
 
-Hierarchical organization into NDRange, work-groups and work-items allows for more intuitive mapping of computation tasks onto OpenCL kernels. Tasks
-are defined at the NDRange level, work-groups represent large chunks of a task which are executed in arbitrary order. The smallest operations (e.g.
-addition of two numbers) are mapped onto work-items.
+\begin{figure}
+    \begin{center}
+    \includegraphics[width=125mm]{resources/opencl_hierarchy.png}
+    \end{center}
+    \caption{OpenCL memory hierarchy. Source: \cite{opencl-hierarchy-diagram}}
+    \label{opencl-hierarchy}
+\end{figure}
 
-Figure \ref{vector_addition} contains a simple OpenCL kernel, which adds up elements from arrays \textit{a} and \textit{b}, then stores the result in
-array \textit{c}. Qualifier \textit{\_\_global} specified for the arguments means that they are stored in global memory. Function
+Hierarchical organization into NDRange, work-groups and work-items allows for more flexible mapping of computation tasks onto heterogeneous hardware
+devices, which can have different architectures. Furthermore, it may also make it easier to map tasks onto OpenCL kernels. Complete tasks are defined
+at the NDRange level, work-groups represent large computation chunks which are executed in arbitrary order. The smallest operations (e.g., addition of
+two numbers) are mapped onto work-items.
+
+Figure \ref{vector_addition} contains a simple OpenCL kernel, which performs addition of elements from arrays \textit{a} and \textit{b}, then stores
+the result in array \textit{c}. Qualifier \textit{\_\_global} specified for the arguments means that they are stored in global memory. Function
 \textit{get\_global\_id(int)} is used to retrieve work-item index unique for the entire NDRange in specified dimension.
 \begin{figure}
 \begin{lstlisting}
@@ -239,9 +261,10 @@ __kernel void vectorAddition(__global float* a, __global float* b, __global floa
 CUDA is a parallel compute API developed by Nvidia Corporation. It works similarly to OpenCL, but there are also several differences which played an
 important role during the framework development:
 \begin{itemize}
-    \item CUDA is officially supported only on graphics cards released by Nvidia Corporation
-    \item Differences in terminology, identical or similar concepts have different terms in OpenCL and CUDA
-    \item Global indexing (i.e., NDRange indexing in OpenCL) works differently in CUDA
+    \item CUDA is officially available only for graphics cards released by Nvidia Corporation and CPUs. GPUs developed by other vendors and other types
+    of accelerators are not supported.
+    \item Differences in terminology -- identical or similar concepts have different terms in OpenCL and CUDA.
+    \item Global indexing (i.e., NDRange indexing in OpenCL) works differently in CUDA.
 \end{itemize}
 Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CUDA. Due to several differences in design, some terms do not have an
 equivalent term in the other API.
@@ -275,20 +298,21 @@ equivalent term in the other API.
 \end{table}
 
 Difference in global indexing plays an important role during addition of tuning parameters which affect either grid dimensions or block dimensions.
-In OpenCL, the NDRange size is specified as total number of threads in a dimension. However, in CUDA the grid size is specified as number of threads
-in a dimension divided by number of blocks in that dimension. This would be rather inconvenient for porting autotuned programs from one API to the
-other. The problem will be further elaborated upon in chapters \ref{ktt-api} and \ref{ktt-structure}.
+In OpenCL, the NDRange size is specified as total number of work-items in a dimension. However, in CUDA the grid size is specified as number of threads
+in a dimension divided by number of blocks in that dimension. This would be rather inconvenient for porting auto-tuned programs from one API to the other.
+The problem will be further elaborated upon in chapter \ref{ktt-api}.
 
-\section{Possibilities for autotuning in compute APIs}
+\section{Possibilities for auto-tuning in compute APIs}
 Design of previously described APIs allows for a wide range of optimization opportunities, both inside kernel and host code. These optimizations can
-be implemented with usage of tuning parameters. While some of the parameters can be utilized only in limited range of applications, there are also
-several ones which can be implemented in larger number of computation tasks. This section provides a list of some of the most common parameters and
-explanation why they are used for autotuning.
+be implemented with usage of tuning parameters. While some of the parameters can be utilized only in a limited range of applications, there are also
+several ones which are relevant for larger number of computation tasks. This section provides a list of some of the most common optimization parameters
+which are used in auto-tuning.
 
 \subsection{Work-group (thread block) dimensions}
 Work-group dimensions specify how many work-items are included in a single work-group. Work-groups are executed on compute units, which are mapped
 onto, for example CPU cores or GPU multiprocessors. Performance of these devices may be vastly different and manually finding an optimal work-group
-size is difficult, which is a reason why this parameter usually makes an ideal candidate for autotuning.
+size is difficult. The dimensions also indirectly affect cache locality of data, which is a reason why this parameter usually makes an ideal candidate
+for auto-tuning.
 
 \subsection{Usage of vector data types}
 Modern processors contain vector registers that allow concurrent execution of a single instruction over multiple data which leads to a significant
@@ -302,6 +326,30 @@ more valid memory types to choose from for data placement. The choice can have a
 memory is usually faster than using global memory. The problem is that local memory capacity is limited and while on certain devices the data could
 fit into it, on other devices it would be necessary to use global memory instead. Having a single version of kernel which would utilize only global
 memory would be inefficient for large number of devices. This can be solved by using tuning parameter which controls the data memory placement.
+
+\subsection{Data layout in memory}
+Composite data can be organized into memory in multiple ways. For example, data about 3D vertex coordinates can be split into three separate arrays
+which are then stored in memory one by one. Another way to organize the same data is to first put all information about a vertex into structure and
+then create single array of these structures. The former layout is commonly referred to as structure of arrays (SoA), while the latter is called array
+of structures (AoS). The difference is illustrated on figure \ref{aos_soa}.
+
+The benefit of SoA is that variables with same data type are stored in contiguous memory, which enables certain devices (e.g., Intel CPUs) to more
+efficiently utilize vector instructions. Other types of devices such as GPUs provide native vector addressing and usage of SoA layout may lead to
+performance degradation.
+
+\begin{figure}
+\begin{lstlisting}
+// 3D vertex coordinates stored as AoS and SoA.
+struct                       struct
+{                            {
+    int x;                       int x[N];
+    int y;                       int y[N];
+    int z;                       int z[N];
+} AoS[N];                    } SoA;
+\end{lstlisting}
+\caption{Comparison of array of structures and structure of arrays layouts.}
+\label{aos_soa}
+\end{figure}
 
 \chapter{Comparison of autotuning frameworks}
 This chapter presents several generic autotuning frameworks for parallel kernels. Each section describes one framework, its advantages, disadvantages
@@ -527,6 +575,7 @@ KernelId addComposition(const std::string& compositionName, const std::vector<Ke
 \caption{Kernel addition methods.}
 \label{ktt-kernel-methods}
 \end{figure}
+
 \subsection{Kernel argument handling}
 There are three types of kernel arguments supported by KTT -- vector, scalar and local memory (OpenCL) arguments (figure \ref{ktt-argument-methods}).
 All arguments are referenced by using a handle provided by tuner. Argument addition methods are templated and support primitive data types (e.g.,
@@ -604,8 +653,12 @@ methods allow specification of a fraction parameter which controls number of exp
 50\% of all configurations being tested). In random search, the explored configurations are chosen randomly, while the last two methods employ
 probabilistic techniques in order to find configurations with good performance more quickly.
 
-Kernel running supports output retrieval in same fashion as online tuning. However, kernel configuration is specified by user in this case. Output
-validation is not performed during kernel running.
+Output retrieval is supported for kernel running in same fashion as for online tuning. In this case though, kernel configuration is specified by a user.
+Output validation is not performed during kernel running.
+
+In basic case, running of single kernel is handled automatically by tuner after the initial setup. However, for scenarios where part of a computation
+happens in C++ code or kernel compositions are utilized, it is necessary to implement a \textit{TuningManipulator} and then bind it to corresponding kernel.
+Tuning manipulators are discussed in greater detail in section <todo: add link>.
 
 \begin{figure}
 \begin{lstlisting}
@@ -613,6 +666,7 @@ void tuneKernel(const KernelId)
 void tuneKernelByStep(const KernelId, const std::vector<OutputDescriptor>& output)
 void runKernel(const KernelId, const std::vector<ParameterPair>& configuration, const std::vector<OutputDescriptor>& output)
 void setSearchMethod(const SearchMethod, const std::vector<double>& arguments)
+void setTuningManipulator(const KernelId, std::unique_ptr<TuningManipulator>)
 \end{lstlisting}
 \caption{Kernel tuning and running methods.}
 \label{ktt-tuning-methods}
@@ -637,11 +691,11 @@ arguments with built-in data types by default.
 \begin{figure}
 \begin{lstlisting}
 void setReferenceKernel(const KernelId id, const KernelId referenceId, const std::vector<ParameterPair>& referenceConfiguration,
-const std::vector<ArgumentId>& validatedArgumentIds);
-void setReferenceClass(const KernelId, std::unique_ptr<ReferenceClass>, const std::vector<ArgumentId>& validatedArgumentIds);
-void setValidationMethod(const ValidationMethod, const double toleranceThreshold);
-void setValidationRange(const ArgumentId, const size_t range);
-void setArgumentComparator(const ArgumentId, const std::function<bool(const void*, const void*)>& comparator);
+const std::vector<ArgumentId>& validatedArgumentIds)
+void setReferenceClass(const KernelId, std::unique_ptr<ReferenceClass>, const std::vector<ArgumentId>& validatedArgumentIds)
+void setValidationMethod(const ValidationMethod, const double toleranceThreshold)
+void setValidationRange(const ArgumentId, const size_t range)
+void setArgumentComparator(const ArgumentId, const std::function<bool(const void*, const void*)>& comparator)
 \end{lstlisting}
 \caption{Output validation methods.}
 \label{ktt-validation-methods}
@@ -657,9 +711,9 @@ with kernel running.
 
 \begin{figure}
 \begin{lstlisting}
-void printResult(const KernelId, std::ostream& outputTarget, const PrintFormat) const;
-void printResult(const KernelId, const std::string& filePath, const PrintFormat) const;
-std::vector<ParameterPair> getBestConfiguration(const KernelId) const;
+void printResult(const KernelId, std::ostream& outputTarget, const PrintFormat) const
+void printResult(const KernelId, const std::string& filePath, const PrintFormat) const
+std::vector<ParameterPair> getBestConfiguration(const KernelId) const
 \end{lstlisting}
 \caption{Result retrieval methods.}
 \label{ktt-result-methods}
@@ -673,10 +727,10 @@ capacities, number of compute units and others.
 
 \begin{figure}
 \begin{lstlisting}
-void printComputeAPIInfo(std::ostream& outputTarget) const;
-std::vector<PlatformInfo> getPlatformInfo() const;
-std::vector<DeviceInfo> getDeviceInfo(const PlatformIndex) const;
-DeviceInfo getCurrentDeviceInfo() const;
+void printComputeAPIInfo(std::ostream& outputTarget) const
+std::vector<PlatformInfo> getPlatformInfo() const
+std::vector<DeviceInfo> getDeviceInfo(const PlatformIndex) const
+DeviceInfo getCurrentDeviceInfo() const
 \end{lstlisting}
 \caption{Information retrieval methods.}
 \label{ktt-information-methods}
@@ -695,16 +749,35 @@ multiple of local size. Enabling this behaviour is useful when multiple paramete
 
 \begin{figure}
 \begin{lstlisting}
-void setCompilerOptions(const std::string& options);
-void setGlobalSizeType(const GlobalSizeType);
-void setAutomaticGlobalSizeCorrection(const bool flag);
+void setCompilerOptions(const std::string& options)
+void setGlobalSizeType(const GlobalSizeType)
+void setAutomaticGlobalSizeCorrection(const bool flag)
 \end{lstlisting}
 \caption{Other notable methods.}
 \label{ktt-utility-methods}
 \end{figure}
 
 \section{Reference class}
-Todo...
+Reference class is an interface provided by KTT framework used for validating of kernel output via implementing a C++ function. In order to utilize it,
+a new class which publicly inherits from ReferenceClass interface must be defined by a user. For the resulting class to be valid, it is necessary to
+implement two virtual methods and optionally override one more method (figure \ref{ktt-reference-methods}).
+
+First method should implement the computation of reference output itself. Second method is then used to retrieve the prepared output. Third optional
+method can be overriden if the resulting output size is smaller than the size of corresponding validated kernel argument. This is useful for situations
+where only a part of the argument is validated.
+
+Finished class can be set to tuner by using a method from tuner API described in section \ref{ktt-validation-methods}. The implemented methods are
+called by tuner during output validation phase.
+
+\begin{figure}
+\begin{lstlisting}
+virtual void computeResult() = 0
+virtual void* getData(const ArgumentId) = 0
+virtual size_t getNumberOfElements(const ArgumentId) const
+\end{lstlisting}
+\caption{Reference class methods.}
+\label{ktt-reference-methods}
+\end{figure}
 
 \section{Tuning Manipulator class}
 Todo...
