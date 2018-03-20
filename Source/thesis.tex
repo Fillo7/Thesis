@@ -161,12 +161,12 @@ situations where computation is split into several smaller functions. Additional
 integration into existing software and possibly combine auto-tuning with regular computation.
 
 Apart from introduction and conclusion, the thesis is split into five main chapters. Chapter one provides description of two compute APIs supported
-by the new framework. It also includes possible areas of auto-tuning utilization in these APIs. Second chapter presents several existing auto-tuning
-frameworks and compares their strengths and weaknesses. Afterwards, it lists reasons why a new framework was developed.
+by the new framework. It also includes possible areas of auto-tuning utilization in these APIs. Second chapter serves as an introduction to auto-tuning,
+presents several existing auto-tuning frameworks and compares their strengths and weaknesses.
 
-The following two chapters are dedicated to KTT (Kernel Tuning Toolkit) framework, which was developed in this thesis. The former is focused on
-describing its public API while the latter provides overview of its internal structure. The fifth and final chapter presents several scenarios of the
-new framework's utilization.
+The following two chapters are dedicated to KTT (Kernel Tuning Toolkit) framework, which was developed in this thesis. The former provides motivation for
+development of a new framework and focuses on describing its public API. The latter includes an overview of its internal structure. The fifth and final
+chapter presents several scenarios of the new framework's utilization.
 
 \chapter{Compute APIs and possibilities for auto-tuning}
 This chapter includes description of compute APIs which are utilized by KTT framework -- OpenCL and CUDA. Because both APIs provide relatively similar
@@ -329,12 +329,12 @@ memory would be inefficient for large number of devices. This can be solved by u
 
 \subsection{Data layout in memory}
 Composite data can be organized into memory in multiple ways. For example, data about 3D vertex coordinates can be split into three separate arrays
-which are then stored in memory one by one. Another way to organize the same data is to first put all information about a vertex into structure and
-then create single array of these structures. The former layout is commonly referred to as structure of arrays (SoA), while the latter is called array
-of structures (AoS). The difference is illustrated on figure \ref{aos_soa}.
+which are then stored in memory one by one. Another way to organize the same data is to first put all information about vertex into a structure and
+then create a single array of these structures. The former layout is commonly referred to as structure of arrays (SoA), while the latter is called
+array of structures (AoS). The difference is illustrated on figure \ref{aos_soa}.
 
 The benefit of SoA is that variables with same data type are stored in contiguous memory, which enables certain devices (e.g., Intel CPUs) to more
-efficiently utilize vector instructions. Other types of devices such as GPUs provide native vector addressing and usage of SoA layout may lead to
+efficiently utilize vector instructions. Other types of devices such as GPUs support native vector addressing and usage of SoA layout may lead to
 performance degradation.
 
 \begin{figure}
@@ -351,19 +351,56 @@ struct                       struct
 \label{aos_soa}
 \end{figure}
 
-\chapter{Comparison of autotuning frameworks}
-This chapter presents several generic autotuning frameworks for parallel kernels. Each section describes one framework, its advantages, disadvantages
-and an example of its usage. Frameworks which are not publicly available or focus only on a specific subset of computations are not discussed here.
-The final section of this chapter includes motivation for development of KTT framework.
+\chapter{Introduction to code variant auto-tuning and related frameworks}
+This chapter describes common terms used in relation to auto-tuning and provides a list of desired features which should be provided by auto-tuning
+frameworks. Afterwards, several generic frameworks are presented, including their advantages, disadvantages, usage examples and comparison. Frameworks
+which are domain-specific or not publicly available are not discussed here.
+
+\section{Auto-tuning glossary}
+The following terms are commonly encountered in subsequent chapters and their knowledge is required for better understanding of auto-tuning process:
+\begin{itemize}
+    \item \textit{tuning parameter} -- Parameter which, depending on its value, affects performance of a computation. For example, a parameter which
+    controls length of a vector type of some variable. Exact way the parameter comes into effect depends on specific framework. Common option is
+    utilization of just-in-time compilation and preprocessor macros.
+    \item \textit{configuration space} -- Space which is created as a Cartesian product of all tuning parameters and their values.
+    \item \textit{tuning configuration} -- Single element of configuration space.
+    \item \textit{traversal of configuration space} -- A process where tuned program is launched repeatedly with different tuning configurations and
+    its running time is measured.
+    \item \textit{search method} -- A method employed to explore individual tuning configurations. Because configuration space may become very large,
+    exhaustive search is not always a viable option. It is possible to explore the space randomly or utilize heuristics.
+\end{itemize}
+
+\section{Features of auto-tuning frameworks}
+While there are no strict requirements over functionality that should be available in auto-tuning frameworks, there are several features that are either
+commonly implemented by existing frameworks or desired by users. They include the following: 
+\begin{itemize}
+    \item Tuning parameters -- While this feature is supported by essentially all frameworks, not all of them allow parameters to affect
+    all parts of a program. For example, some frameworks support only parameters which affect kernel code but not host code.
+    \item Parameter constraints -- Ability to mark certain tuning configurations as invalid due to incompatible combinations of tuning parameter values.
+    Such configurations will be excluded from configuration space traversal, which can lead to improved usability and performance.
+    \item Search methods -- Support for different methods apart from full space traversal, which offer reasonable performance and quality of results.
+    \item Output validation -- Certain tuning configurations might include code which is experimental or still in development. Tuner should offer
+    an ability to compare the produced output with precomputed reference output and detect differences.
+    \item Usage of kernel compositions -- A computation may utilize multiple kernels in order to produce complete result. For example, output produced
+    by kernel for matrix transposition is then used as an input for matrix multiplication kernel. The two kernels may each have different tuning
+    parameters and such scenarios require extra functionality on framework side.
+    \item Online auto-tuning -- Ability to combine configuration space traversal with regular computation. Output from tested tuning configurations can
+    be immediately utilized in other parts of a program.
+    \item Integration into existing software -- Possibility to optionally modify certain auto-tuning steps, such as launching of individual kernels in
+    order to execute arbitrary code.
+    \item User-friendliness and ease of use -- Availability of documentation, tutorials, clean and stable API. Availability of utility methods such
+    as printing of tuning results in common format, logging of debug information and others.
+\end{itemize}
 
 \section{CLTune}
-CLTune \cite{cltune} is a framework for autotuning of OpenCL and CUDA kernels. It is freely available in form of a library and provides C++ interface
+CLTune \cite{cltune} is a framework for auto-tuning of OpenCL and CUDA kernels. It is freely available in form of a library and provides C++ interface
 for writing host programs. It is relatively easy to use and provides capabilities for tuning of single kernels, multiple configuration search
-strategies and result validation in a form of reference kernels.
+strategies including several heuristic-based approaches and result validation in a form of reference kernels.
 
-However, it also has several limitations. Among the most significant ones are lack of support for composite kernels, limited argument handling
-options and inability to validate kernel results with C or C++ function. The framework is no longer actively developed, so it is unlikely that new
-features will be introduced.
+However, it also has several limitations. Among the most significant ones are lack of support for kernel compositions, limited argument handling
+options (all kernels must accept same kernel arguments, argument placement in memory is impossible to control) and poor support for integration into
+existing software (code which launches kernels is internal part of the framework and cannot be modified). The framework is no longer actively developed,
+so it is unlikely that new features will be introduced.
 
 Basic tuner configuration in CLTune consists of several main steps, which are listed below. KTT functionality, in its simplest form, is based on the
 same idea. Figure \ref{cltune-example} contains part of a program written in CLTune, which includes all the main steps.
@@ -397,9 +434,9 @@ tuner.PrintToScreen();
 \label{cltune-example}
 \end{figure}
 
-In order to support tuning parameters, kernel source file needs to be modified as well. In case of CLTune, the tuner exports parameter values from
-given configuration to kernel by using preprocessor definitions. Code needs to be modified, so that the values have intended effect. Simple example
-of such modification is shown in figure \ref{cltune-example-kernel}.
+In order to support tuning parameters, kernel source file needs to be modified. In case of CLTune, the tuner exports parameter values from given
+configuration to kernel source code by using preprocessor macros. Kernel code has to be modified by user, so that the exported values have intended
+effect on computation. Simple example of such modification is shown in figure \ref{cltune-example-kernel}.
 \begin{figure}
 \begin{lstlisting}
 #if USE_CONSTANT_MEMORY == 0
@@ -423,11 +460,11 @@ C functions, though in the last case, user is responsible for measuring executio
 provides more utility methods, for example ability to set kernel compiler options, measuring execution duration in multiple iterations to increase
 accuracy and validating output with user-defined, precomputed answer rather than being restricted to reference kernel.
 
-Disadvantages include again lack of support for composite kernels and inability for integration into existing software. However, Kernel Tuner is still
-actively developed and some of these shortcomings may be eventually amended.
+As in case of CLTune, disadvantages include lack of support for kernel compositions and inability for integration into existing software. However,
+Kernel Tuner is still actively developed and some of these shortcomings may be eventually amended.
 
-Host program has to be written in similar fashion as in CLTune, preprocessor definitions for parameters are exported in the same way. Figure
-\ref{kerneltuner-example} contains major portion of host program written for Kernel Tuner.
+Host program has to be written in similar fashion to CLTune, definitions of tuning parameters are exported in the same way. Figure \ref{kerneltuner-example}
+contains major portion of host program written for Kernel Tuner.
 \begin{figure}
 \begin{lstlisting}
 def tune():
@@ -462,8 +499,8 @@ if __name__ == "__main__":
 Unlike CLTune and Kernel Tuner, OpenTuner \cite{opentuner} is an autotuning framework which can be used to tune programs written in essentially any
 language. API is provided for Python. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. This
 involves, for example writing a method which adds parameter definitions from tuner-generated configurations to tuned program and compiles it. The
-other listed frameworks have this functionality already built-in. Another shortcoming is that the framework no longer seems to be actively developed
-with majority of the development being done before 2017.
+other listed frameworks have this functionality already built-in. Other shortcomings include lack of support for tuning parameter constraints and
+problems with integration into software. Framework no longer seems to be actively developed with majority of the development being done before 2017.
 
 While the other frameworks use preprocessor definitions to export tuning parameters into code, OpenTuner does not have any specific way of parameter
 handling. The way parameters become visible in tuned code depends on capabilities of target programming language and on the user-written method for
