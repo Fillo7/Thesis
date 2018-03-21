@@ -112,7 +112,8 @@
     emphstyle=[1]{\color{blue}},
     emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI, KernelId, ArgumentId, string, vector, DimensionVector, unique\_ptr,
         TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation, ModifierType, ModifierAction, ModifierDimension, ParameterPair,
-        OutputDescriptor, SearchMethod, function, ValidationMethod, ReferenceClass, PrintFormat, ostream, PlatformInfo, DeviceInfo, GlobalSizeType},
+        OutputDescriptor, SearchMethod, function, ValidationMethod, ReferenceClass, PrintFormat, ostream, PlatformInfo, DeviceInfo, GlobalSizeType,
+        QueueId},
     emphstyle=[2]{\color{lightblue}}
 }
 
@@ -680,6 +681,7 @@ void setKernelArguments(const KernelId, const std::vector<ArgumentId>&)
 \end{figure}
 
 \subsection{Tuning parameters and constraints}
+\label{ktt-tuning-parameters}
 Tuning parameters are specified for kernels with a name and list of valid values. Both integer and floating-point values are supported. Before kernel
 tuning begins, configurations for each combination of kernel parameter values are generated. For example, adding parameter A with values 1 and 2, and
 parameter B with values 5 and 10 will result in four configurations being generated -- \{A1, B5\}, \{A1, B10\}, \{A2, B5\} and \{A2, B10\}. Tuned kernel is
@@ -792,7 +794,7 @@ std::vector<ParameterPair> getBestConfiguration(const KernelId) const
 \label{ktt-result-methods}
 \end{figure}
 
-\subsection{Platforms and devices information retrieval}
+\subsection{Platform and device information retrieval}
 When using KTT framework for the first time on a system, it is useful to retrieve indices for available platforms and devices, which are then used for
 proper tuner initialization. The assigned indices and corresponding platform and device names can be printed to specified C++ output stream. It is
 furthermore possible to retrieve more detailed information about individual platforms and devices, such as list of supported extensions, memory
@@ -855,7 +857,83 @@ virtual size_t getNumberOfElements(const ArgumentId) const
 
 \section{Tuning Manipulator class}
 \label{ktt-manipulator}
-Todo...
+Tuning manipulator is an interface for customizing the way kernels are launched inside KTT framework. This is useful in several scenarios:
+\begin{itemize}
+    \item Tuned kernel is launched iteratively in order to produce complete result.
+    \item Part of a computation happens on a CPU side in C++ code.
+    \item Tuning parameters which affect host code are present.
+    \item Kernel compositions are utilized.
+    \item Framework is integrated into another software which needs to perform additional operations between individual kernel launches.
+\end{itemize}
+
+Because in all of the previous scenarios, the exact way kernel is launched depends on a specific use case, it is up to user to define their own tuning
+manipulator. The definition works in a similar way as for reference class -- a new class inheriting from \textit{TuningManipulator} interface has to be
+created and a virtual method which launches a kernel and performs any user-defined operations needs to be implemented.
+
+Tuning manipulator interface also includes several other methods which can be used by a user within the kernel launch method. These include methods
+for work with multiple compute queues, asynchronous operations, buffer management and methods which make handling of tuning parameters affecting
+host code easier.
+
+\subsection{Kernel running and host code tuning}
+The basic task which needs to be fulfilled by the implemented method is to run a kernel with corresponding tuning configuration. If the implemented
+method executes only this one task, then the resulting behaviour is the same as if no tuning manipulator was used at all.
+
+Kernel can be run either with global and local thread sizes corresponding to current configuration or with user-specified sizes. Second option can be
+used in addition or as an alternative to thread size modifying parameters described in subsection \ref{ktt-tuning-parameters}. Methods for thread size
+and parameter value retrieval are available as well. Those can be used to implement tuning parameters which affect host code.
+
+\begin{figure}
+\begin{lstlisting}
+void runKernel(const KernelId)
+void runKernel(const KernelId, const DimensionVector& globalSize, const DimensionVector& localSize)
+DimensionVector getCurrentGlobalSize(const KernelId) const
+DimensionVector getCurrentLocalSize(const KernelId) const
+std::vector<ParameterPair> getCurrentConfiguration() const
+\end{lstlisting}
+\caption{Kernel running and configuration retrieval methods.}
+\label{ktt-manipulator-kernel-methods}
+\end{figure}
+
+\subsection{Kernel argument and buffer management}
+When a kernel is run iteratively to produce complete result, it is often desirable to modify the input data between each iteration. Tuning manipulator
+interface provides methods for this scenario. It is possible to modify both scalar and vector arguments. It is also possible to retrieve data of
+vector arguments, which is useful, for example when the data has to be preprocessed on a CPU in-between iterative kernel launches.
+
+All of the modifications performed on kernel arguments and corresponding buffers are isolated to a single tuning manipulator instance call. This makes
+it possible to utilize manipulators in offline tuning, where the initial state of kernel arguments before testing of each tuning configuration needs to
+remain the same.
+
+\begin{figure}
+\begin{lstlisting}
+void updateArgumentScalar(const ArgumentId, const void* argumentData)
+void updateArgumentVector(const ArgumentId, const void* argumentData, const size_t numberOfElements)
+void getArgumentVector(const ArgumentId, void* destination, const size_t numberOfElements) const
+void copyArgumentVector(const ArgumentId destination, const ArgumentId source, const size_t numberOfElements)
+void changeKernelArguments(const KernelId, const std::vector<ArgumentId>&)
+\end{lstlisting}
+\caption{Kernel argument and buffer handling methods.}
+\label{ktt-manipulator-buffer-methods}
+\end{figure}
+
+\subsection{Compute queues and asynchronous operations}
+In real-world computations, multiple compute queues are often utilized in order to overlap independent parts of a computation and thus increase
+performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in specified queue and device synchronization.
+Number of queues which are available corresponds to user-specified amount during tuner initialization. Methods which can be run asynchronously include
+kernel running and operations with vector kernel arguments. It is possible to synchronize either only specified queue or all queues which effectively
+synchronizes the entire device.
+
+\begin{figure}
+\begin{lstlisting}
+QueueId getDefaultDeviceQueue() const
+std::vector<QueueId> getAllDeviceQueues() const
+void synchronizeQueue(const QueueId)
+void synchronizeDevice()
+void runKernelAsync(const KernelId, const DimensionVector& globalSize, const DimensionVector& localSize, const QueueId)
+void updateArgumentVectorAsync(const ArgumentId, const void* argumentData, const size_t numberOfElements, QueueId)
+\end{lstlisting}
+\caption{Compute queue handling and asynchronous methods.}
+\label{ktt-manipulator-asynchronous-methods}
+\end{figure}
 
 \section{Example of API usage}
 Todo...
@@ -878,7 +956,12 @@ Todo...
 \printbibliography[heading=bibintoc]
 
 \appendix
-\chapter{Appendix}
-Todo...
+\chapter{Electronic attachment}
+Electronic attachment for the thesis is available in Information System of Masaryk University. It contains the following materials:
+\begin{itemize}
+    \item thesis text in PDF format
+    \item full source code for version 0.6 of KTT framework
+    \item supplementary KTT framework materials such as API documentation, tutorials and example projects
+\end{itemize}
 
 \end{document}
