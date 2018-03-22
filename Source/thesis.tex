@@ -732,11 +732,11 @@ KTT built-in structure \textit{OutputDescriptor}. This structure specifies handl
 optionally size of the retrieved data, which is useful in case only part of the argument is needed. Online tuning also enables swapping of argument
 data between each configuration, though if validation is enabled, reference output needs to be recomputed every time a new configuration is run.
 
-In both modes, the order and number of tested configurations depends on utilized search method. KTT currently supports four search methods -- full
-search, random search, simulated annealing and Markov chain Monte Carlo. Full search simply explores all configurations iteratively. The other three
-methods allow specification of a fraction parameter which controls number of explored configurations (e.g., setting fraction to 0.5 will result in
-50\% of all configurations being tested). In random search, the explored configurations are chosen randomly, while the last two methods employ
-probabilistic techniques in order to find configurations with good performance more quickly.
+In both modes, the order and number of tested configurations depends on utilized search method. KTT currently supports five search methods -- full
+search, random search, simulated annealing, particle swarm optimization and Markov chain Monte Carlo. Full search simply explores all configurations
+iteratively. The other four methods allow specification of a fraction parameter which controls number of explored configurations (e.g., setting fraction
+to 0.5 will result in 50\% of all configurations being tested). In random search, the explored configurations are chosen randomly, while the last three
+methods employ probabilistic techniques in order to find configurations with good performance more quickly.
 
 Output retrieval is supported for kernel running in same fashion as for online tuning. Kernels can be run in any valid tuning configuration which is
 specified by user. Output validation is not performed during kernel running.
@@ -1059,13 +1059,17 @@ int main(int argc, char** argv) {
 
 \chapter{KTT Structure}
 \label{ktt-structure}
-Todo...
+KTT structure is loosely based on layered architecture pattern, which is often employed for developing enterprise applications. Individual functionality
+is split into multiple components across several layers. On lower layers, each component is independent and focuses on a single task (e.g., managing of
+kernels), which makes it easier to extend existing functionality and introduce new features. Functionality of individual components is interconnected
+on higher layers with the topmost layer serving as public API. Figure \ref{ktt-class-diagram} contains high-level class diagram of KTT framework, which
+includes all of the major components and dependencies between them.
 
 \begin{sidewaysfigure}
 \begin{adjustwidth}{-3.5cm}{-3.5cm}
 \includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
 \end{adjustwidth}
-\caption{KTT class diagram.}
+\caption{KTT class diagram. Note that due to its size, it is best readable in electronic version of the thesis using zoom feature.}
 \label{ktt-class-diagram}
 \end{sidewaysfigure}
 
