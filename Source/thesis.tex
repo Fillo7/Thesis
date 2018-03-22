@@ -16,6 +16,8 @@
 \usepackage[main=english, slovak, czech]{babel}
 \usepackage{amssymb}
 \usepackage{chngpage}
+\usepackage{lscape}
+\usepackage{rotating}
 
 \thesissetup
 {
@@ -90,14 +92,15 @@
 
 \lstset
 {
-    frame=tb,
+    frame=t,
     language=C++,
     aboveskip=3mm,
     belowskip=3mm,
     showstringspaces=false,
     columns=flexible,
     basicstyle={\footnotesize\ttfamily},
-    numbers=none,
+    numbers=left,
+    stepnumber=1,
     numberstyle=\tiny\color{gray},
     keywordstyle=\color{blue},
     commentstyle=\color{darkgreen},
@@ -108,7 +111,7 @@
 
 \lstset
 {
-    emph=[1]{float4, define, elif, endif, def, with, as, in},
+    emph=[1]{override, float4, define, elif, endif, def, with, as, in},
     emphstyle=[1]{\color{blue}},
     emph=[2]{size\_t, uint32\_t, PlatformIndex, DeviceIndex, ComputeAPI, KernelId, ArgumentId, string, vector, DimensionVector, unique\_ptr,
         TuningManipulator, ArgumentAccessType, ArgumentMemoryLocation, ModifierType, ModifierAction, ModifierDimension, ParameterPair,
@@ -623,13 +626,15 @@ queues. OpenCL API with one compute queue is the default setting. Indices are as
 with a method.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-Tuner(const PlatformIndex, const DeviceIndex)
-Tuner(const PlatformIndex, const DeviceIndex, const ComputeAPI)
-Tuner(const PlatformIndex, const DeviceIndex, const ComputeAPI, const uint32_t computeQueueCount)
+Tuner(const PlatformIndex platform, const DeviceIndex device)
+Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI API)
+Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI API, const uint32_t computeQueueCount)
 \end{lstlisting}
 \caption{Tuner constructors.}
 \label{ktt-constructors}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Kernel handling}
@@ -638,14 +643,17 @@ Kernels can be added to tuner from a file or C++ string. Users furthermore need 
 KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be referenced by using a handle returned
 by tuner. Kernel compositions can be added by specifying handles of kernels included inside composition. In order to use compositions, user additionally
 has to define a tuning manipulator class whose usage is detailed in section \ref{ktt-manipulator}.
+
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 KernelId addKernel(const std::string& source, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize)
 KernelId addKernelFromFile(const std::string& filePath, const std::string& kernelName, const DimensionVector& globalSize, const DimensionVector& localSize)
-KernelId addComposition(const std::string& compositionName, const std::vector<KernelId>& kernelIds, std::unique_ptr<TuningManipulator>)
+KernelId addComposition(const std::string& compositionName, const std::vector<KernelId>& kernelIds, std::unique_ptr<TuningManipulator> manipulator)
 \end{lstlisting}
 \caption{Kernel addition methods.}
 \label{ktt-kernel-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Kernel argument handling}
@@ -661,15 +669,17 @@ memory, it is possible to utilize zero-copy feature, which means that kernel has
 functionality is supported by both CUDA and OpenCL. All of the vector argument handling options are illustrated with diagram \ref{ktt-buffer-diagram}.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-ArgumentId addArgumentVector(const std::vector<T>& data, const ArgumentAccessType)
-ArgumentId addArgumentVector(std::vector<T>& data, const ArgumentAccessType, const ArgumentMemoryLocation, const bool copyData)
+ArgumentId addArgumentVector(const std::vector<T>& data, const ArgumentAccessType accessType)
+ArgumentId addArgumentVector(std::vector<T>& data, const ArgumentAccessType accessType, const ArgumentMemoryLocation location, const bool copyData)
 ArgumentId addArgumentScalar(const T& data)
 ArgumentId addArgumentLocal(const size_t localMemoryElementsCount)
-void setKernelArguments(const KernelId, const std::vector<ArgumentId>&)
+void setKernelArguments(const KernelId id, const std::vector<ArgumentId>& argumentIds)
 \end{lstlisting}
 \caption{Argument handling methods.}
 \label{ktt-argument-methods}
+\end{adjustwidth}
 \end{figure}
 
 \begin{figure}
@@ -699,14 +709,16 @@ Tuning parameters for kernel compositions are added separately and are independe
 parameters either.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void addParameter(const KernelId, const std::string& parameterName, const std::vector<size_t>& parameterValues)
-void addParameterDouble(const KernelId, const std::string& parameterName, const std::vector<double>& parameterValues)
-void addParameter(const KernelId, const std::string& parameterName, const std::vector<size_t>& parameterValues, const ModifierType, const ModifierAction, const ModifierDimension)
-void addConstraint(const KernelId, const std::function<bool(std::vector<size_t>)>& constraintFunction, const std::vector<std::string>& parameterNames)
+void addParameter(const KernelId id, const std::string& parameterName, const std::vector<size_t>& parameterValues)
+void addParameterDouble(const KernelId id, const std::string& parameterName, const std::vector<double>& parameterValues)
+void addParameter(const KernelId id, const std::string& parameterName, const std::vector<size_t>& parameterValues, const ModifierType type, const ModifierAction action, const ModifierDimension dimension)
+void addConstraint(const KernelId id, const std::function<bool(std::vector<size_t>)>& constraintFunction, const std::vector<std::string>& parameterNames)
 \end{lstlisting}
 \caption{Tuning parameter and constraint addition methods.}
 \label{ktt-parameter-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Kernel tuning and running}
@@ -734,15 +746,17 @@ happens in C++ code or kernel compositions are utilized, it is necessary to impl
 kernel. Tuning manipulators are discussed in greater detail in section \ref{ktt-manipulator}.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void tuneKernel(const KernelId)
-void tuneKernelByStep(const KernelId, const std::vector<OutputDescriptor>& output)
-void runKernel(const KernelId, const std::vector<ParameterPair>& configuration, const std::vector<OutputDescriptor>& output)
-void setSearchMethod(const SearchMethod, const std::vector<double>& arguments)
-void setTuningManipulator(const KernelId, std::unique_ptr<TuningManipulator>)
+void tuneKernel(const KernelId id)
+void tuneKernelByStep(const KernelId id, const std::vector<OutputDescriptor>& output)
+void runKernel(const KernelId id, const std::vector<ParameterPair>& configuration, const std::vector<OutputDescriptor>& output)
+void setSearchMethod(const SearchMethod method, const std::vector<double>& arguments)
+void setTuningManipulator(const KernelId id, std::unique_ptr<TuningManipulator> manipulator)
 \end{lstlisting}
 \caption{Kernel tuning and running methods.}
 \label{ktt-tuning-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Output validation}
@@ -764,16 +778,17 @@ type and decides whether they are equal. Comparators are mandatory for arguments
 validate arguments with built-in data types.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void setReferenceKernel(const KernelId id, const KernelId referenceId, const std::vector<ParameterPair>& referenceConfiguration,
-const std::vector<ArgumentId>& validatedArgumentIds)
-void setReferenceClass(const KernelId, std::unique_ptr<ReferenceClass>, const std::vector<ArgumentId>& validatedArgumentIds)
-void setValidationMethod(const ValidationMethod, const double toleranceThreshold)
-void setValidationRange(const ArgumentId, const size_t range)
-void setArgumentComparator(const ArgumentId, const std::function<bool(const void*, const void*)>& comparator)
+void setReferenceKernel(const KernelId id, const KernelId referenceId, const std::vector<ParameterPair>& referenceConfiguration, const std::vector<ArgumentId>& validatedArgumentIds)
+void setReferenceClass(const KernelId id, std::unique_ptr<ReferenceClass> referenceClass, const std::vector<ArgumentId>& validatedArgumentIds)
+void setValidationMethod(const ValidationMethod method, const double toleranceThreshold)
+void setValidationRange(const ArgumentId id, const size_t range)
+void setArgumentComparator(const ArgumentId id, const std::function<bool(const void*, const void*)>& comparator)
 \end{lstlisting}
 \caption{Output validation methods.}
 \label{ktt-validation-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Tuning results retrieval}
@@ -785,13 +800,15 @@ List of parameter values for the best known configuration can also be retrieved 
 auto-tuning with kernel running.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void printResult(const KernelId, std::ostream& outputTarget, const PrintFormat) const
-void printResult(const KernelId, const std::string& filePath, const PrintFormat) const
-std::vector<ParameterPair> getBestConfiguration(const KernelId) const
+void printResult(const KernelId id, std::ostream& outputTarget, const PrintFormat format)
+void printResult(const KernelId id, const std::string& filePath, const PrintFormat format)
+std::vector<ParameterPair> getBestConfiguration(const KernelId id)
 \end{lstlisting}
 \caption{Result retrieval methods.}
 \label{ktt-result-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Platform and device information retrieval}
@@ -801,14 +818,16 @@ furthermore possible to retrieve more detailed information about individual plat
 capacities, number of compute units and others.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void printComputeAPIInfo(std::ostream& outputTarget) const
-std::vector<PlatformInfo> getPlatformInfo() const
-std::vector<DeviceInfo> getDeviceInfo(const PlatformIndex) const
-DeviceInfo getCurrentDeviceInfo() const
+void printComputeAPIInfo(std::ostream& outputTarget)
+std::vector<PlatformInfo> getPlatformInfo()
+std::vector<DeviceInfo> getDeviceInfo(const PlatformIndex index)
+DeviceInfo getCurrentDeviceInfo()
 \end{lstlisting}
 \caption{Information retrieval methods.}
 \label{ktt-information-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Other notable methods}
@@ -823,13 +842,15 @@ in OpenCL, and also in CUDA if OpenCL global size notation option is used. Frame
 multiple of a local size. Enabling this behaviour is useful when multiple tuning parameters which affect thread sizes are present.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 void setCompilerOptions(const std::string& options)
-void setGlobalSizeType(const GlobalSizeType)
+void setGlobalSizeType(const GlobalSizeType type)
 void setAutomaticGlobalSizeCorrection(const bool flag)
 \end{lstlisting}
 \caption{Other notable methods.}
 \label{ktt-utility-methods}
+\end{adjustwidth}
 \end{figure}
 
 \section{Reference class}
@@ -846,13 +867,15 @@ Implemented class can be then assigned to tuner by using a method from tuner API
 methods are utilized by tuner during output validation phase.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 virtual void computeResult() = 0
-virtual void* getData(const ArgumentId) = 0
-virtual size_t getNumberOfElements(const ArgumentId) const
+virtual void* getData(const ArgumentId id) = 0
+virtual size_t getNumberOfElements(const ArgumentId id)
 \end{lstlisting}
 \caption{Reference class methods.}
 \label{ktt-reference-methods}
+\end{adjustwidth}
 \end{figure}
 
 \section{Tuning Manipulator class}
@@ -883,15 +906,17 @@ used in addition or as an alternative to thread size modifying parameters descri
 and parameter value retrieval are available as well. Those can be used to implement tuning parameters which affect host code.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void runKernel(const KernelId)
-void runKernel(const KernelId, const DimensionVector& globalSize, const DimensionVector& localSize)
-DimensionVector getCurrentGlobalSize(const KernelId) const
-DimensionVector getCurrentLocalSize(const KernelId) const
-std::vector<ParameterPair> getCurrentConfiguration() const
+void runKernel(const KernelId id)
+void runKernel(const KernelId id, const DimensionVector& globalSize, const DimensionVector& localSize)
+DimensionVector getCurrentGlobalSize(const KernelId id)
+DimensionVector getCurrentLocalSize(const KernelId id)
+std::vector<ParameterPair> getCurrentConfiguration()
 \end{lstlisting}
 \caption{Kernel running and configuration retrieval methods.}
 \label{ktt-manipulator-kernel-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Kernel argument and buffer management}
@@ -904,46 +929,148 @@ it possible to utilize manipulators in offline tuning, where the initial state o
 remain the same.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-void updateArgumentScalar(const ArgumentId, const void* argumentData)
-void updateArgumentVector(const ArgumentId, const void* argumentData, const size_t numberOfElements)
-void getArgumentVector(const ArgumentId, void* destination, const size_t numberOfElements) const
+void updateArgumentScalar(const ArgumentId id, const void* argumentData)
+void updateArgumentVector(const ArgumentId id, const void* argumentData, const size_t numberOfElements)
+void getArgumentVector(const ArgumentId id, void* destination, const size_t numberOfElements)
 void copyArgumentVector(const ArgumentId destination, const ArgumentId source, const size_t numberOfElements)
-void changeKernelArguments(const KernelId, const std::vector<ArgumentId>&)
+void changeKernelArguments(const KernelId id, const std::vector<ArgumentId>& argumentIds)
 \end{lstlisting}
 \caption{Kernel argument and buffer handling methods.}
 \label{ktt-manipulator-buffer-methods}
+\end{adjustwidth}
 \end{figure}
 
 \subsection{Compute queues and asynchronous operations}
 In real-world computations, multiple compute queues are often utilized in order to overlap independent parts of a computation and thus increase
 performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in specified queue and device synchronization.
-Number of queues which are available corresponds to user-specified amount during tuner initialization. Methods which can be run asynchronously include
-kernel running and operations with vector kernel arguments. It is possible to synchronize either only specified queue or all queues which effectively
-synchronizes the entire device.
+Number of queues which are available corresponds to user-specified amount during tuner initialization. Queues are referenced with handles provided by KTT.
+Methods which can be run asynchronously include kernel running and operations with vector kernel arguments. It is possible to synchronize either only
+specified queue or all queues which effectively synchronizes the entire device.
 
 \begin{figure}
+\begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-QueueId getDefaultDeviceQueue() const
-std::vector<QueueId> getAllDeviceQueues() const
-void synchronizeQueue(const QueueId)
+QueueId getDefaultDeviceQueue()
+std::vector<QueueId> getAllDeviceQueues()
+void synchronizeQueue(const QueueId queue)
 void synchronizeDevice()
-void runKernelAsync(const KernelId, const DimensionVector& globalSize, const DimensionVector& localSize, const QueueId)
-void updateArgumentVectorAsync(const ArgumentId, const void* argumentData, const size_t numberOfElements, QueueId)
+void runKernelAsync(const KernelId id, const DimensionVector& globalSize, const DimensionVector& localSize, const QueueId queue)
+void updateArgumentVectorAsync(const ArgumentId id, const void* argumentData, const size_t numberOfElements, QueueId queue)
 \end{lstlisting}
 \caption{Compute queue handling and asynchronous methods.}
 \label{ktt-manipulator-asynchronous-methods}
+\end{adjustwidth}
 \end{figure}
 
 \section{Example of API usage}
-Todo...
+Figures \ref{ktt-api-usage-reference} and \ref{ktt-api-usage} contain a simple example of using KTT to tune OpenCL vector addition kernel (shown in
+figure \ref{vector_addition}). Output validation is done via reference class interface which is defined in the first figure. Second figure then shows
+the main part of host program. Kernel is tuned using single tuning parameter which controls size of a work-group -- four possible values are specified.
+More complex examples, including usage of tuning manipulator interface are covered in chapter \ref{ktt-advanced-usage}.
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+class SimpleValidator : public ktt::ReferenceClass
+{
+public:
+    // User-defined constructor. In this case it simply initializes all data that is needed to compute reference result.
+    SimpleValidator(const ktt::ArgumentId validatedArgument, const std::vector<float>& a, const std::vector<float>& b, const std::vector<float>& result) :
+        validatedArgument(validatedArgument),
+        a(a),
+        b(b),
+        result(result)
+    {}
+    
+    void computeResult() override
+    {
+        for (size_t i = 0; i < result.size(); i++)
+        {
+            result.at(i) = a.at(i) + b.at(i);
+        }
+    }
+    
+    void* getData(const ktt::ArgumentId id) override
+    {
+        if (validatedArgument == id)
+        {
+            return result.data();
+        }
+        return nullptr;
+    }
+    
+private:
+    ktt::ArgumentId validatedArgument;
+    const std::vector<float>& a;
+    const std::vector<float>& b;
+    std::vector<float> result;
+};
+\end{lstlisting}
+\caption{KTT usage example -- reference class definition.}
+\label{ktt-api-usage-reference}
+\end{adjustwidth}
+\end{figure}
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+int main(int argc, char** argv) {
+    // Initialize platform / device index and path to kernel file.
+    ...
+    
+    const size_t numberOfElements = 1024 * 1024;
+    const ktt::DimensionVector ndRangeDimensions(numberOfElements);
+    // Work-group size is initialized to one in this case, it will be controlled with tuning parameter which is added later.
+    const ktt::DimensionVector workGroupDimensions(1);
+    std::vector<float> a(numberOfElements);
+    std::vector<float> b(numberOfElements);
+    std::vector<float> result(numberOfElements, 0.0f);
+    
+    for (size_t i = 0; i < numberOfElements; i++)
+    {
+        a.at(i) = static_cast<float>(i);
+        b.at(i) = static_cast<float>(i + 1);
+    }
+    
+    ktt::Tuner tuner(platformIndex, deviceIndex);
+    ktt::KernelId kernelId = tuner.addKernelFromFile(kernelFile, "vectorAddition", ndRangeDimensions, workGroupDimensions);
+    
+    ktt::ArgumentId aId = tuner.addArgumentVector(a, ktt::ArgumentAccessType::ReadOnly);
+    ktt::ArgumentId bId = tuner.addArgumentVector(b, ktt::ArgumentAccessType::ReadOnly);
+    ktt::ArgumentId resultId = tuner.addArgumentVector(result, ktt::ArgumentAccessType::WriteOnly);
+    tuner.setKernelArguments(kernelId, std::vector<ktt::ArgumentId>{aId, bId, resultId});
+    
+    tuner.setReferenceClass(kernelId, std::make_unique<SimpleValidator>(resultId, a, b, result), std::vector<ktt::ArgumentId>{resultId});
+    tuner.addParameter(kernelId, "multiply_work_group_size", std::vector<size_t>{32, 64, 128, 256}, ktt::ModifierType::Local, ktt::ModifierAction::Multiply, ktt::ModifierDimension::X);
+    tuner.tuneKernel(kernelId);
+    
+    tuner.printResult(kernelId, std::cout, ktt::PrintFormat::Verbose);
+    return 0;
+}
+\end{lstlisting}
+\caption{KTT usage example -- main part of the host program.}
+\label{ktt-api-usage}
+\end{adjustwidth}
+\end{figure}
 
 \chapter{KTT Structure}
 \label{ktt-structure}
 Todo...
 
+\begin{sidewaysfigure}
+\begin{adjustwidth}{-3.5cm}{-3.5cm}
+\includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
+\end{adjustwidth}
+\caption{KTT class diagram.}
+\label{ktt-class-diagram}
+\end{sidewaysfigure}
+
 \chapter{Advanced KTT usage examples}
-\label{ktt-usage}
+\label{ktt-advanced-usage}
 Todo...
 
 \chapter{Conclusion}
