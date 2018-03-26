@@ -1065,6 +1065,36 @@ kernels), which makes it easier to extend existing functionality and introduce n
 on higher layers with the topmost layer serving as public API. Figure \ref{ktt-class-diagram} contains high-level class diagram of KTT framework, which
 includes all of the major components and dependencies between them.
 
+Functionality of the following components is further described in this chapter:
+\begin{itemize}
+    \item Tuner
+    \item TunerCore
+    \item KernelManager
+    \item ArgumentManager
+    \item TuningRunner
+    \item KernelRunner
+    \item ComputeEngine
+    \item ConfigurationManager
+    \item ResultValidator
+    \item ManipulatorInterface
+\end{itemize}
+
+\section{Tuner}
+Tuner component represents a major part of public API. Its methods were described in chapter \ref{ktt-api}. In order to hide internal framework
+components from users, it utilizes pointer to implementation idiom. The public header (.h) file contains only declaration of implementation class
+(i.e., TunerCore) and a pointer to its instance. However, the actual TunerCore header with method definitions is directly included only in Tuner
+implementation (.cpp) file. This file is needed during compilation, but the built library can be then distributed with Tuner header only. There is
+no need to include internal headers for components such as TunerCore, which makes upgrading to newer version of framework easier in certain situations
+(e.g., if methods in TunerCore are modified in newer version of the framework, but methods in Tuner API remain the same, software which utilizes the
+framework only needs to replace library file without recompilation).
+
+\section{TunerCore}
+TunerCore makes up the main internal part of the framework. It owns and manages several smaller components and exposes subset of their functionality
+to public API. In some cases, it combines functionality of methods from multiple components into a single public API method.
+
+\section{KernelManager}
+Todo...
+
 \begin{sidewaysfigure}
 \begin{adjustwidth}{-3.5cm}{-3.5cm}
 \includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
