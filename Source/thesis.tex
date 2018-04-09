@@ -1143,40 +1143,57 @@ high-level class diagram of KTT framework, which includes all of the major compo
 Functionality of the following components is further described in this chapter:
 \begin{itemize}
     \item Tuner
-    \item TunerCore
-    \item KernelManager
-    \item ArgumentManager
-    \item TuningRunner
-    \item KernelRunner
-    \item ComputeEngine
-    \item ConfigurationManager
-    \item ResultValidator
-    \item ManipulatorInterface
+    \item Tuner core
+    \item Kernel manager
+    \item Argument manager
+    \item Tuning runner
+    \item Kernel runner
+    \item Compute engine
+    \item Configuration manager
+    \item Result validator
+    \item Manipulator interface
 \end{itemize}
 
+\begin{sidewaysfigure}
+    \begin{adjustwidth}{-3.5cm}{-3.5cm}
+        \includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
+    \end{adjustwidth}
+    \caption{KTT class diagram. Note that due to its size, it is best readable in electronic version of the thesis using zoom feature.}
+    \label{ktt-class-diagram}
+\end{sidewaysfigure}
+
 \section{Tuner}
-Tuner component represents a major part of public API. Its methods were described in chapter \ref{ktt-api}. In order to hide internal framework
+Tuner component represents the main part of public API. Its methods were described in chapter \ref{ktt-api}. In order to hide internal framework
 components from users, it utilizes pointer to implementation idiom. The public header (.h) file contains only declaration of implementation class
-(i.e., TunerCore) and a pointer to its instance. However, the actual TunerCore header with method definitions is directly included only in Tuner
-implementation (.cpp) file. This file is needed during compilation, but the built library can be then distributed with Tuner header only. There is
-no need to include internal headers for components such as TunerCore, which makes upgrading to newer version of framework easier in certain situations
-(e.g., if methods in TunerCore are modified in newer version of the framework, but methods in Tuner API remain the same, software which utilizes the
+(i.e., tuner core) and a pointer to its instance. However, the actual tuner core header with method definitions is directly included only in tuner
+implementation (.cpp) file. This file is needed during compilation, but the built library can be then distributed with tuner header only. There is
+no need to include internal headers for components such as tuner core, which makes upgrading to newer version of framework easier in certain situations
+(e.g., if methods in tuner core are modified in newer version of the framework, but methods in tuner API remain the same, software which utilizes the
 framework only needs to replace library file without recompilation).
 
-\section{TunerCore}
-TunerCore makes up the main internal part of the framework. It owns and manages several smaller components and exposes subset of their functionality
-to public API. In some cases, it combines functionality of methods from multiple components into a single public API method.
+\section{Tuner Core}
+Tuner core makes up the main internal part of the framework. It owns and manages several smaller components and exposes subset of their functionality
+to public API. In some cases, it combines functionality of methods from multiple components into a single public API method. 
 
-\section{KernelManager}
+\section{Kernel Manager}
+Primary task of a kernel manager is storage and management of kernels and kernel compositions. This includes actions such as assigning unique handles for
+new kernels and compositions, adding tuning parameter definitions to kernel source code and generating kernel configurations which are then used by other
+components.
+
+Configurations are generated recursively with parameters being processed one by one. The method which generates configurations contains a loop which
+launches a new instance of the same method for each parameter value. The new instances then repeat the process for subsequent parameters until the
+resulting configuration contains definitions of all parameters. When a configuration is complete, it is checked whether it satisfies all user-defined
+constraints. Configurations which pass the check are then placed inside a shared vector container which is visible from all instances of recursively
+called methods, invalid configurations are discarded. Kernel configurations also include global and local kernel thread sizes, which are updated when
+a thread-modifying tuning parameter is processed. With multiple such parameters, the modification happens in the order of their addition.
+
+Kernel compositions are components which contain references to all kernels that they utilize. Addition of tuning parameters works in a similar fashion
+as for regular kernels, difference being that when a parameter is added to a composition, its definition is added to source codes of all utilized kernels.
+If there is a kernel, which does not utilize certain parameter, the definition can be safely ignored. However, it is still possible to add thread-modifying
+parameters which only affect thread sizes of a specific kernel inside a composition.
+
+\section{Argument Manager}
 Todo...
-
-\begin{sidewaysfigure}
-\begin{adjustwidth}{-3.5cm}{-3.5cm}
-\includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
-\end{adjustwidth}
-\caption{KTT class diagram. Note that due to its size, it is best readable in electronic version of the thesis using zoom feature.}
-\label{ktt-class-diagram}
-\end{sidewaysfigure}
 
 \chapter{Advanced KTT usage examples}
 \label{ktt-advanced-usage}
