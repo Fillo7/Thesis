@@ -1138,7 +1138,8 @@ KTT structure is loosely based on layered architecture pattern \cite{software-ar
 applications. Individual functionality is split into multiple components across several layers. On lower layers, each component is independent and
 focuses on a single task (e.g., managing of kernels), which makes it easier to extend existing functionality and introduce new features. Functionality
 of individual components is interconnected on higher layers with the topmost layer serving as public API. Figure \ref{ktt-class-diagram} contains
-high-level class diagram of KTT framework, which includes all of the major components and dependencies between them.
+high-level class diagram of KTT framework, which includes all of the major components and dependencies between them. Some smaller components and utility
+classes such as result printer are not included in order to improve readability.
 
 Functionality of the following components is further described in this chapter:
 \begin{itemize}
@@ -1149,9 +1150,9 @@ Functionality of the following components is further described in this chapter:
     \item Tuning runner
     \item Configuration manager
     \item Result validator
+    \item Compute engine
     \item Kernel runner
     \item Manipulator interface
-    \item Compute engine
 \end{itemize}
 
 \begin{sidewaysfigure}
@@ -1195,8 +1196,9 @@ parameters which only affect thread sizes of a specific kernel inside a composit
 Argument manager stores and generates unique handles for kernel arguments. Arguments inside KTT can store elements with user-defined data types as well as
 built-in data types. This is handled by storing the argument elements as raw data and converting to proper data type when needed (e.g., during result
 validation). Restriction is that the used data type has to be trivially copyable\footnote{Trivially copyable data type cannot have user-defined
-copy / move constructors, destructor or assignment operators, which effectively makes it safe to copy with functions such as std::memcpy.}. However,
-this is not much of a problem because data which is copied into e.g., GPU memory should be trivially copyable either way.
+copy / move constructors, destructor or assignment operators and cannot contain virtual methods, which effectively makes it safe to copy with low-level
+functions such as std::memcpy.}. However, this is not much of a problem because data which is copied into e.g., GPU memory should be trivially copyable
+either way.
 
 \section{Tuning runner, configuration manager and result validator}
 Tuning runner and its two subcomponents -- configuration manager and result validator, oversee both offline and online tuning. During offline tuning,
@@ -1208,21 +1210,50 @@ using different configurations. The loop consists of the following steps:
     a subcomponent of configuration manager.
     \item Tuning runner launches a computation using previously retrieved configuration.
     \item When computation is finished, the output is compared with previously generated reference output.
-    \item Computation duration is reported back to configuration manager, the duration can be utilized by searcher to optimize exploration of configuration
-    space. Durations for failed computations or invalid results are reported as infinity.
+    \item Computation duration is reported back to configuration manager, the duration can be utilized by searcher to optimize exploration of
+    configuration space. Durations for failed computations or invalid results are reported as infinity.
 \end{enumerate}
 Once the loop finishes, tuning runner performs cleanup and the tuning results are stored for later retrieval.
 
 Online tuning contains similar steps as offline tuning, except that it performs only single iteration of previously described loop per online tuning
 method invocation. The other important difference is that the reference output has to be recomputed for each configuration as the output between
 launches of individual configurations may change. Since online tuning method can be launched more times than the total number of available configurations,
-tuner always launches computation with the best found configuration after the exploration of configuration space is finished.
-
-\section{Kernel runner and manipulator interface}
-Todo...
+tuner always launches computation with the best found configuration after completing the exploration of configuration space.
 
 \section{Compute engine}
-Todo...
+Compute engine serves as an interface for implementing support for multiple compute APIs into KTT framework. It abstracts relatively complicated
+low-level compute API functions into smaller number of easier-to-use methods. It also provides automatic management of certain resources such as context,
+command queues, kernels and events. Other framework components then do not need to utilize the specific compute API functions but rather use unified
+compute engine interface. This simplifies addition of new compute APIs into KTT and makes it possible to support multiple APIs in a single version of
+KTT library.
+
+Compute engine interface declares several virtual methods which need to be implemented by inheriting class which provides support for specific compute
+API. These include methods for running kernels, managing buffers, retrieving results, synchronizing command queues and querying for information about
+platforms and devices.
+
+\section{Kernel runner and manipulator interface}
+Kernel runner provides simplified methods for using compute engine to higher-level components such as tuner core or tuning runner. It handles running of
+kernels both with and without tuning manipulators. It also allows running of kernel compositions which always have to use tuning manipulator. Manipulators
+for individual kernels and compositions are stored inside this component as well.
+
+Motivation for developing tuning manipulator API was to allow users to have greater control over the process of running kernel computations.
+For example, certain computations require running the same kernel multiple times in a loop, computing portion of the result directly in C++ code or
+utilizing multiple kernels. The main KTT API alone does not allow for such functionality because it provides only high-level kernel running methods which
+are easier to use but only support simpler use cases. In order to handle the complex scenarios, users would need to have access to more fine-grained
+functionality, similar to what is offered by compute engine.
+
+However, exposing compute engine methods to public API directly would be problematic for two reasons. Firstly, as KTT framework is further developed,
+declarations of compute engine methods often change in order to support new functionality. This would force users to frequently update their code
+during transitions to newer version of framework. Secondly, significant number of compute engine methods are intended to be used together as a part of
+single computation (e.g. uploading kernel arguments into buffers followed by a launch of kernel) and having these methods declared in the main API
+along with the high-level methods would cause confusion.
+
+Because of these reasons, tuning manipulator and the related component called manipulator interface were developed. Users can define a class which
+inherits from tuning manipulator and consequently gain access to its methods which provide functionality similar to compute engine. Tuning manipulator
+contains a private pointer to manipulator interface and internally calls its methods. Implementing class for the manipulator interface is a part of
+kernel runner and has direct access to compute engine. When a kernel or a composition utilizing tuning manipulator is run, kernel runner sets the
+manipulator interface pointer inside tuning manipulator to the implementing class and computation may then normally proceed. This way users have access
+to functionality of internal framework components without a need to directly expose these components in public API. 
 
 \chapter{Advanced KTT usage examples}
 \label{ktt-advanced-usage}
