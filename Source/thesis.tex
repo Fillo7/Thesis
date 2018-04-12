@@ -628,7 +628,7 @@ as several mentioned frameworks are still actively developed.
 Supported APIs & CUDA, OpenCL & CUDA, OpenCL & any language or API & any language or API \\
 Tuning parameters & kernel code only & kernel and host code & kernel and host code & kernel and host code \\
 Parameter constraints & \multicolumn{1}{c}{\checkmark} & \multicolumn{1}{c}{\checkmark} & requires additional user effort & \multicolumn{1}{c|}{\checkmark} \\
-Search methods & multiple heuristics supported & multiple heuristics supported & multiple heuristics supported & multiple heuristics supported \\
+Search methods & multiple optimization methods supported & multiple optimization methods supported & multiple optimization methods supported & multiple optimization methods supported \\
 Output validation & reference kernel only & reference kernel or precomputed buffer & \multicolumn{1}{c}{X} & \multicolumn{1}{c|}{X} \\
 Kernel compositions & \multicolumn{1}{c}{X} & \multicolumn{1}{c}{X} & requires additional user effort & requires additional user effort \\
 Online auto-tuning & \multicolumn{1}{c}{X} & \multicolumn{1}{c}{X} & \multicolumn{1}{c}{X} & \multicolumn{1}{c|}{X} \\
@@ -691,7 +691,7 @@ Tuner class makes up the main part of KTT API. It includes methods which impleme
 \end{itemize}
 
 \subsection{Tuner creation}
-In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructors available (figure 
+In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructors available (Figure 
 \ref{ktt-constructors}). They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
 queues. OpenCL API with one compute queue is the default setting. Indices are assigned to platforms and devices by KTT framework, they can be retrieved
 with a method.
@@ -709,11 +709,11 @@ Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI A
 \end{figure}
 
 \subsection{Kernel handling}
-Kernels can be added to a tuner from a file or C++ string. Users furthermore need to specify kernel function name and default global and local sizes
-(i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside \textit{DimensionVector} objects, which are a part of
-KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be referenced by using a handle returned
-by tuner. Kernel compositions can be added by specifying handles of kernels included inside a composition. In order to use compositions, user additionally
-has to define a tuning manipulator class whose usage is detailed in Section \ref{ktt-manipulator}.
+Kernels can be added to a tuner from a file or C++ string (Figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
+default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside \textit{DimensionVector}
+objects, which are a part of KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be referenced
+by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels included inside a composition. In order to use
+compositions, user additionally has to define a tuning manipulator class whose usage is detailed in Section \ref{ktt-manipulator}.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -731,7 +731,7 @@ KernelId addComposition(const std::string& compositionName, const std::vector<Ke
 There are three types of kernel arguments supported by KTT -- vector, scalar and local memory (OpenCL) arguments. All arguments are referenced by using
 a handle provided by a tuner. Argument addition methods are templated and support primitive data types (e.g., int, float) as well as user-defined data
 types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts kernel handle and corresponding argument handles. This allows
-them to be shared among multiple kernels.
+them to be shared among multiple kernels. The mentioned methods can be seen in Figure \ref{ktt-argument-methods}.
 
 Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from where
 argument data is accessed by kernel (device or host) and whether argument copy should be made by tuner. By default, copies of all vector arguments
@@ -763,10 +763,10 @@ void setKernelArguments(const KernelId id, const std::vector<ArgumentId>& argume
 
 \subsection{Tuning parameters and constraints}
 \label{ktt-tuning-parameters}
-Tuning parameters are specified for kernels with a name and list of valid values. Both integer and floating-point values are supported. Before kernel
-tuning begins, configurations for each combination of kernel parameter values are generated. For example, adding parameter A with values 1 and 2, and
-parameter B with values 5 and 10 will result in four configurations being generated -- \{1, 5\}, \{1, 10\}, \{2, 5\} and \{2, 10\}. Tuned kernel is
-then launched with parameter definitions prepended to kernel source code based on the current configuration.
+Tuning parameters are specified for kernels with a name and list of valid values (Figure \ref{ktt-parameter-methods}). Both integer and floating-point
+values are supported. Before kernel tuning begins, configurations for each combination of kernel parameter values are generated. For example, adding
+parameter A with values 1 and 2, and parameter B with values 5 and 10 will result in four configurations being generated -- \{1, 5\}, \{1, 10\}, \{2, 5\}
+and \{2, 10\}. Tuned kernel is then launched with parameter definitions prepended to kernel source code based on the current configuration.
 
 Some tuning parameters may additionally affect global and local sizes of tuned kernel. This is useful, for example, in cases where parameter in kernel
 source code modifies amount of work done by a single work-item and therefore changes total number of needed work-items. Each dimension can be modified
@@ -819,6 +819,8 @@ In basic case, launch of a kernel is handled automatically by a tuner after the 
 happens in C++ code or kernel compositions are utilized, it is necessary to implement a \textit{TuningManipulator} and then bind it to corresponding
 kernel. Tuning manipulators are discussed in greater detail in Section \ref{ktt-manipulator}.
 
+Figure \ref{ktt-tuning-methods} contains all of the previously described methods related to kernel tuning and running.
+
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
@@ -835,12 +837,12 @@ void setTuningManipulator(const KernelId id, std::unique_ptr<TuningManipulator> 
 
 \subsection{Output validation}
 \label{ktt-validation}
-Kernel output can be validated in two ways -- with a reference class or a reference kernel. In the former case, user has to implement a class which
-includes a method that computes reference output on a CPU. Tuner then compares this output with result produced by tuned kernels. If difference in tuned
-output at certain index is detected, given kernel configuration is considered invalid. More details about reference class can be found in Section
-\ref{ktt-reference-class}. The latter case works similarly, difference being that reference output is computed by a kernel with user-specified
-configuration. Both methods support validation of multiple kernel arguments. It is also possible to only check subpart of the argument, which is useful
-when result is shorter than length of an entire argument.
+Kernel output can be validated in two ways -- with a reference class or a reference kernel (Figure \ref{ktt-validation-methods}). In the former case,
+user has to implement a class which includes a method that computes reference output on a CPU. Tuner then compares this output with result produced
+by tuned kernels. If difference in tuned output at certain index is detected, given kernel configuration is considered invalid. More details about
+reference class can be found in Section \ref{ktt-reference-class}. The latter case works similarly, difference being that reference output is computed
+by a kernel with user-specified configuration. Both methods support validation of multiple kernel arguments. It is also possible to only check subpart
+of the argument, which is useful when result is shorter than length of an entire argument.
 
 When kernel arguments with floating-point data type are validated, user can choose one of the multiple validation techniques and a tolerance threshold.
 If tuned output differs slightly from reference output, but remains within the threshold, it is still considered correct. Validation techniques include
@@ -872,7 +874,7 @@ results for specified kernel can be printed either to a C++ output stream or a f
 files or terminals and CSV (comma-separated values) format which is useful for subsequent processing and analysis of results.
 
 List of parameter values for the best known configuration can also be retrieved through an API method, which is useful for combining online
-auto-tuning with kernel running.
+auto-tuning with kernel running. The available methods can be seen in figure \ref{ktt-result-methods}.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -890,7 +892,7 @@ std::vector<ParameterPair> getBestConfiguration(const KernelId id)
 When using KTT framework for the first time on a system, it is useful to retrieve indices for available platforms and devices, which are then used for
 proper tuner initialization. The assigned indices and corresponding platform and device names can be printed to specified C++ output stream. It is
 furthermore possible to retrieve more detailed information about individual platforms and devices, such as list of supported extensions, memory
-capacities, number of compute units and others.
+capacities, number of compute units and others (Figure \ref{ktt-information-methods}).
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -907,7 +909,8 @@ DeviceInfo getCurrentDeviceInfo()
 
 \subsection{Other notable methods}
 Other notable API methods include a method for specification of kernel compiler options, choice of a global size notation and an option to enable
-automatic global size correction. Compiler options can be specified as a string of individual flags separated by a white space.
+automatic global size correction (Figure \ref{ktt-utility-methods}). Compiler options can be specified as a string of individual flags separated by
+a white space.
 
 Choice of a global size notation allows using OpenCL NDRange dimension specification for CUDA grid and vice versa. This allows elimination of one of
 the notable differences between OpenCL and CUDA API in host code and makes it easier to port programs written in one API to the other.
@@ -979,6 +982,7 @@ method executes only this one task, then the resulting behaviour is the same as 
 Kernel in tuning manipulator can be run either with global and local thread sizes corresponding to current configuration or with user-specified sizes.
 Second option can be used in addition or as an alternative to thread size modifying parameters described in Section \ref{ktt-tuning-parameters}.
 Methods for thread size and parameter value retrieval are available as well. Those can be used to implement tuning parameters which affect host code.
+The list of all tuning manipulator methods related to kernel running can be seen in Figure \ref{ktt-manipulator-kernel-methods}.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -997,7 +1001,8 @@ std::vector<ParameterPair> getCurrentConfiguration()
 \subsection{Kernel argument and buffer management}
 When a kernel is run iteratively to produce complete result, it is often desirable to modify the input data between each iteration. Tuning manipulator
 interface provides methods for this scenario. It is possible to modify both scalar and vector arguments. It is also possible to retrieve data of
-vector arguments, which is useful, for example when the data has to be preprocessed on a CPU in-between iterative kernel launches.
+vector arguments, which is useful, for example when the data has to be preprocessed on a CPU in-between iterative kernel launches (Figure
+\ref{ktt-manipulator-buffer-methods}).
 
 All of the modifications performed on kernel arguments and corresponding buffers are isolated to a single tuning manipulator instance call. This makes
 it possible to utilize manipulators in offline tuning, where the initial state of kernel arguments before testing of each tuning configuration needs to
@@ -1022,7 +1027,7 @@ In real-world computations, multiple compute queues are often utilized in order 
 performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in specified queue and device synchronization.
 Number of queues which are available corresponds to user-specified amount during tuner initialization. Queues are referenced with handles provided by KTT.
 Methods which can be run asynchronously include kernel running and operations with vector kernel arguments. It is possible to synchronize either only
-specified queue or all queues which effectively synchronizes the entire device.
+specified queue or all queues which effectively synchronizes the entire device (Figure \ref{ktt-manipulator-asynchronous-methods}).
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -1041,8 +1046,22 @@ void updateArgumentVectorAsync(const ArgumentId id, const void* argumentData, co
 
 \section{Example of API usage}
 Figures \ref{ktt-api-usage-reference} and \ref{ktt-api-usage} contain a simple example of using KTT to tune OpenCL vector addition kernel (shown in
-Figure \ref{vector_addition}). Output validation is done via reference class interface which is defined in the first figure. Second figure then shows
-the main part of host program. Kernel is tuned using single tuning parameter which controls size of a work-group -- four possible values are specified.
+Figure \ref{vector_addition}).
+
+Output validation is done via reference class interface which is defined in the first figure. Code lines 4-9 contain a user-defined constructor. In this
+case it simply initializes all the data that is needed to compute reference result. Method which computes the result is defined at lines 11-17. It
+performs a simple addition of elements inside two vector containers in a for loop. The final method defined at lines 19-26 is called internally by KTT
+framework to retrieve computed reference result. Since KTT validation component works directly with computed data, the method needs to return pointer
+to a buffer which contains this data rather than pointer to the entire vector container.
+
+Second figure then shows the main part of host program. In this example, a kernel is tuned using single tuning parameter which controls size of a
+work-group -- four possible parameter values are specified. Lines 5-16 contain initialization of data, global and local sizes. Work-group size is
+initialized to one because it will be controlled with tuning parameter which is added later. Tuner itself is initialized in line 18 with specification
+of platform and device. Addition of tuned kernel and its arguments happens at lines 19-24. The following line includes instantiation of previously
+defined reference class and its addition to tuner. Line 28 contains definition of a tuning parameter which multiplies work-group size in dimension x.
+Since the default size was defined as 1, this effectively sets the resulting size to this parameter value. Once all the configuration is done, tuning
+of kernel can be started and is followed by printing of results to standard output stream.
+
 More complex examples, including usage of tuning manipulator interface are covered in Chapter \ref{ktt-advanced-usage}.
 
 \begin{figure}
@@ -1052,7 +1071,6 @@ More complex examples, including usage of tuning manipulator interface are cover
 class SimpleValidator : public ktt::ReferenceClass
 {
 public:
-    // User-defined constructor. In this case it simply initializes all data that is needed to compute reference result.
     SimpleValidator(const ktt::ArgumentId validatedArgument, const std::vector<float>& a, const std::vector<float>& b, const std::vector<float>& result) :
         validatedArgument(validatedArgument),
         a(a),
@@ -1093,13 +1111,12 @@ private:
 \footnotesize
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     // Initialize platform / device index and path to kernel file.
     ...
-    
     const size_t numberOfElements = 1024 * 1024;
     const ktt::DimensionVector ndRangeDimensions(numberOfElements);
-    // Work-group size is initialized to one in this case, it will be controlled with tuning parameter which is added later.
     const ktt::DimensionVector workGroupDimensions(1);
     std::vector<float> a(numberOfElements);
     std::vector<float> b(numberOfElements);
@@ -1121,8 +1138,8 @@ int main(int argc, char** argv) {
     
     tuner.setReferenceClass(kernelId, std::make_unique<SimpleValidator>(resultId, a, b, result), std::vector<ktt::ArgumentId>{resultId});
     tuner.addParameter(kernelId, "multiply_work_group_size", std::vector<size_t>{32, 64, 128, 256}, ktt::ModifierType::Local, ktt::ModifierAction::Multiply, ktt::ModifierDimension::X);
-    tuner.tuneKernel(kernelId);
     
+    tuner.tuneKernel(kernelId);
     tuner.printResult(kernelId, std::cout, ktt::PrintFormat::Verbose);
     return 0;
 }
@@ -1257,6 +1274,16 @@ to functionality of internal framework components without a need to directly exp
 
 \chapter{Advanced KTT usage examples}
 \label{ktt-advanced-usage}
+This chapter presents several examples which utilize advanced features of KTT framework. These include utilization of tuning manipulator, kernel
+compositions, online auto-tuning and integration of KTT into existing software.
+
+\section{Vector reduction example with tuning manipulator}
+Todo...
+
+\section{Sorting example with kernel compositions}
+Todo...
+
+\section{Integrating KTT into software and online auto-tuning}
 Todo...
 
 \chapter{Conclusion}
