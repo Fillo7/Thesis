@@ -174,7 +174,7 @@ presents several existing auto-tuning frameworks and compares their strengths an
 
 The following two chapters are dedicated to KTT (Kernel Tuning Toolkit) framework, which was developed in this thesis. The former provides motivation for
 development of a new framework and focuses on describing its public API. The latter includes an overview of its internal structure. The fifth and final
-chapter presents several scenarios of the new framework's utilization.
+chapter presents several scenarios of the new framework utilization.
 
 \chapter{Compute APIs and possibilities for auto-tuning}
 This chapter includes description of compute APIs which are utilized by KTT framework -- OpenCL and CUDA. Because both APIs provide relatively similar
@@ -1277,8 +1277,135 @@ to functionality of internal framework components without a need to directly exp
 This chapter presents several examples which utilize advanced features of KTT framework. These include utilization of tuning manipulator, kernel
 compositions, online auto-tuning and integration of KTT into existing software.
 
-\section{Vector reduction example with tuning manipulator}
-Todo...
+\section{Reduction example with tuning manipulator}
+This example demonstrates tuning of a kernel which performs summation of floating-point numbers contained in a single array.
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+class TunableReduction : public ktt::TuningManipulator {
+public:
+    // Constructor initializes private manipulator attributes.
+
+    void launchComputation(const ktt::KernelId kernelId) override {
+        ktt::DimensionVector globalSize = getCurrentGlobalSize(kernelId);
+        ktt::DimensionVector myGlobalSize = globalSize;
+        ktt::DimensionVector localSize = getCurrentLocalSize(kernelId);
+        auto parameterValues = getCurrentConfiguration();
+        if (getParameterValue("UNBOUNDED_WG", parameterValues) == 0) {
+            myGlobalSize = ktt::DimensionVector(getParameterValue("WG_NUM", parameterValues) * localSize.getSizeX());
+        }
+        runKernel(kernelId, myGlobalSize, localSize);
+        
+        if (getParameterValue("USE_ATOMICS", parameterValues) == 0) {
+            size_t n = globalSize.getSizeX() / localSize.getSizeX();
+            size_t inOffset = 0, outOffset = n, iterations = 0;
+            size_t vectorSize = getParameterValue("VECTOR_SIZE", parameterValues);
+            size_t wgSize = localSize.getSizeX();
+            
+            while (n > 1 || iterations % 2 == 1) {
+                swapKernelArguments(kernelId, srcId, dstId);
+                myGlobalSize.setSizeX((n + vectorSize - 1) / vectorSize);
+                myGlobalSize.setSizeX(((myGlobalSize.getSizeX() - 1) / wgSize + 1) * wgSize);
+                if (myGlobalSize == localSize) outOffset = 0;
+                updateArgumentScalar(nId, &n);
+                updateArgumentScalar(outOffsetId, &outOffset);
+                updateArgumentScalar(inOffsetId, &inOffset);
+                
+                runKernel(kernelId, myGlobalSize, localSize);
+                n = (n + wgSize * vectorSize - 1) / (wgSize * vectorSize);
+                inOffset = outOffset / vectorSize;
+                outOffset += n;
+                iterations++;
+            }
+        }
+    }
+
+private:
+    // Attributes are ids of kernel arguments passed to manipulator constructor.
+};
+\end{lstlisting}
+\caption{Tuning manipulator for reduction kernel.}
+\label{reduction-example-manipulator}
+\end{adjustwidth}
+\end{figure}
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+int main(int argc, char** argv)
+{
+    // Initialize platform / device index and path to kernel file.
+    ...
+    
+    const int n = 32 * 1024 * 1024;
+    const int nAlloc = ((n + 16 - 1) / 16) * 16;
+    std::vector<float> src(nAlloc, 0.0f);
+    std::vector<float> dst(nAlloc, 0.0f);
+    int nUp = ((n + 512 - 1) / 512) * 512;
+    ktt::DimensionVector ndRangeDimensions(nUp);
+    ktt::DimensionVector workGroupDimensions(1);
+    
+    for (int i = 0; i < n; i++)
+    {
+        src[i] = 1000.0f * ((float)rand()) / ((float)RAND_MAX);
+    }
+    
+    ktt::Tuner tuner(platformIndex, deviceIndex);
+    ktt::KernelId kernelId = tuner.addKernelFromFile(kernelFile, "reduce", ndRangeDimensions, workGroupDimensions);
+    ktt::ArgumentId srcId = tuner.addArgumentVector(src, ktt::ReadWrite);
+    ktt::ArgumentId dstId = tuner.addArgumentVector(dst, ktt::ReadWrite);
+    ktt::ArgumentId nId = tuner.addArgumentScalar(n);
+    int offset = 0;
+    ktt::ArgumentId inOffsetId = tuner.addArgumentScalar(offset);
+    ktt::ArgumentId outOffsetId = tuner.addArgumentScalar(offset);
+    tuner.setKernelArguments(kernelId, std::vector<ktt::ArgumentId>{srcId, dstId, nId, inOffsetId, outOffsetId});
+    
+    // Definition of tuning parameters and constraints is in separate figure.
+    ...
+    
+    tuner.setReferenceClass(kernelId, std::make_unique<ReferenceReduction>(src, dstId), std::vector<ktt::ArgumentId>{dstId});
+    tuner.setValidationRange(dstId, 1);
+    tuner.setTuningManipulator(kernelId, std::make_unique<TunableReduction>(srcId, dstId, nId, inOffsetId, outOffsetId));
+    
+    tuner.tuneKernel(kernelId);
+    tuner.printResult(kernelId, "reduction_output.csv", ktt::PrintFormat::CSV);
+    return 0;
+}
+\end{lstlisting}
+\caption{Main part of the reduction host program.}
+\label{reduction-example-main}
+\end{adjustwidth}
+\end{figure}
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+    ...
+    const ktt::DeviceInfo di = tuner.getCurrentDeviceInfo();
+    size_t cus = di.getMaxComputeUnits();
+    
+    tuner.addParameter(kernelId, "WORK_GROUP_SIZE_X", {32, 64, 128, 256, 512}, ktt::ModifierType::Local, ktt::ModifierAction::Multiply, ktt::ModifierDimension::X);
+    tuner.addParameter(kernelId, "UNBOUNDED_WG", {0, 1});
+    tuner.addParameter(kernelId, "WG_NUM", {0, cus, cus * 2, cus * 4, cus * 8, cus * 16});
+    tuner.addParameter(kernelId, "VECTOR_SIZE", {1, 2, 4, 8, 16}, ktt::ModifierType::Global, ktt::ModifierAction::Divide, ktt::ModifierDimension::X);
+    tuner.addParameter(kernelId, "USE_ATOMICS", {0, 1});
+    
+    auto persistConstraint = [](std::vector<size_t> v) {return (v[0] && v[1] == 0) || (!v[0] && v[1] > 0);};
+    tuner.addConstraint(kernelId, persistConstraint, {"UNBOUNDED_WG", "WG_NUM"});
+    auto persistentAtomic = [](std::vector<size_t> v) {return (v[0] == 1) || (v[0] == 0 && v[1] == 1);};
+    tuner.addConstraint(kernelId, persistentAtomic, {"UNBOUNDED_WG", "USE_ATOMICS"});
+    auto unboundedWG = [](std::vector<size_t> v) {return (!v[0] || v[1] >= 32);};
+    tuner.addConstraint(kernelId, unboundedWG, {"UNBOUNDED_WG", "WORK_GROUP_SIZE_X"});
+    ...
+\end{lstlisting}
+\caption{Definition of tuning parameters and constraints in reduction host program.}
+\label{reduction-example-parameters}
+\end{adjustwidth}
+\end{figure}
 
 \section{Sorting example with kernel compositions}
 Todo...
@@ -1287,7 +1414,18 @@ Todo...
 Todo...
 
 \chapter{Conclusion}
-Todo...
+The framework developed as a part of this thesis contains all the functionality needed to fulfill the assignment. Certain features such as tuning
+manipulators or possibility of online tuning are not yet supported by any other publicly available framework and KTT therefore offers improvements
+over current state-of-the-art auto-tuning software. Furthermore, it was demonstrated that the stated features can be used in practice in scenarios
+such as auto-tuning of non-trivial computations which utilize multiple kernels or integration into other software where it can be used to combine
+online tuning with regular computation.
+
+However, there is still a lot of room left for improvements and many ways in which the framework could be extended. It would be interesting to explore
+viability of auto-tuning in area of graphics applications and shaders with addition of support for APIs such as Vulkan or OpenGL. Another improvement
+could be made in the area of tuning for different input sizes since the tuner currently assumes that the input size does not change significantly during
+exploration of configuration space. The exploration itself could use some additional improvements as well with support for more search optimization
+techniques. It would be also useful to develop a tool which analyses the impact of individual tuning parameters and their combinations on performance on
+specific devices or a tool for tuning results visualization.
 
 %% Print full bibliography, use biber.exe on .bcf file to generate bibliography
 \csname captions\languagename\endcsname
