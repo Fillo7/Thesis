@@ -1333,7 +1333,34 @@ This example demonstrates tuning of a kernel which performs summation of floatin
 computed inside a kernel. It is possible to either finish the entire computation in a single kernel invocation utilizing atomic instructions or
 compute the result iteratively over multiple kernel launches. The second scenario requires usage of tuning manipulator.
 
-Todo... (0 - uses wgnum, 1 - scales based on input size)
+The example is split into three figures -- Figure \ref{reduction-example-main} contains the main part of a host program. Tuning parameters and
+constraints are defined in Figure \ref{reduction-example-parameters} and Figure \ref{reduction-example-manipulator} includes definition of a
+manipulator.
+
+Host program begins with initialization of data and kernel dimensions (lines 6-17), default NDRange size corresponds to a total number of elements
+rounded up to the nearest higher multiple of 512, which is the largest possible work-group size that kernel in this example utilizes. The following
+lines (19-27) contain initialization of tuner, addition of kernel and its arguments. Kernel output is validated using reference class (line 32).
+Since result of the computation is only a single number, validation range is set to one (line 33). Tuning manipulator is added to tuner in a similar
+fashion as a reference class (line 34). The manipulator in this example modifies certain kernel arguments whose ids are passed into its constructor.
+The remaining code section (lines 36-37) contains start of a tuning process and printing of results.
+
+Tuning parameters are defined in the second figure (lines 5-9). The first parameter controls size of a work-group, same as in simple example in
+section \ref{ktt-simple-usage}. The next two parameters are used to control number of work-groups. Parameter "UNBOUNDED\_WG" controls whether number
+of work-groups scales based on input size. If the scaling is disabled, then their number is controlled with parameter "WG\_NUM" whose values are set
+to a multiple of available compute units. The number of compute units and several other device parameters can be retrieved through KTT API
+(lines 2-3). Parameter "VECTOR\_SIZE" controls which vector data type is used for input buffer. This parameter also divides the global size because
+more elements are processed by a single work-item when longer vector types are used. The last parameter determines whether the computation is done
+in a single kernel execution or iterative kernel launches are utilized. The example also makes use of multiple parameter constraints (lines 11-16).
+For example, the first constraint ensures that only one of the parameters which affect number of work-groups remains active inside a configuration.
+
+Tuning manipulator is defined in the third figure. Apart from constructor, it contains definition of a method which performs the computation. First,
+it retrieves information about current configuration (lines 6-9), including parameters and modified kernel dimensions. If "UNBOUNDED\_WG" parameter
+is inactive, it sets NDRange size based on a value of "WG\_NUM" parameter (lines 10-12). The kernel is then launched (line 13) using the corresponding
+global and local size. In case atomic operations are used, the computation is then finished and tuning manipulator ends. Otherwise kernel is launched
+repeatedly in iterations log(n) times, input size shrinking by half in each iteration (lines 15-36). Because an output from one iteration is used as
+an input in next iteration, the source and destination buffers keep getting swapped (line 22). As the input size continuously shrinks, NDRange size
+and several kernel arguments have to be updated in each iteration (lines 23-28). Once the input size reaches 1, the computation is finished. One extra
+iteration is sometimes performed in order to ensure that result is inside the original destination buffer.
 
 \begin{figure}
 \footnotesize
@@ -1398,11 +1425,11 @@ int main(int argc, char** argv)
     tuner.addParameter(kernelId, "VECTOR_SIZE", {1, 2, 4, 8, 16}, ktt::ModifierType::Global, ktt::ModifierAction::Divide, ktt::ModifierDimension::X);
     tuner.addParameter(kernelId, "USE_ATOMICS", {0, 1});
     
-    auto persistConstraint = [](std::vector<size_t> v) {return (v[0] && v[1] == 0) || (!v[0] && v[1] > 0);};
+    auto persistConstraint = [](std::vector<size_t> v) {return (v[0] == 1 && v[1] == 0) || (v[0] == 0 && v[1] > 0);};
     tuner.addConstraint(kernelId, persistConstraint, {"UNBOUNDED_WG", "WG_NUM"});
     auto persistentAtomic = [](std::vector<size_t> v) {return (v[0] == 1) || (v[0] == 0 && v[1] == 1);};
     tuner.addConstraint(kernelId, persistentAtomic, {"UNBOUNDED_WG", "USE_ATOMICS"});
-    auto unboundedWG = [](std::vector<size_t> v) {return (!v[0] || v[1] >= 32);};
+    auto unboundedWG = [](std::vector<size_t> v) {return (v[0] == 0 || v[1] >= 32);};
     tuner.addConstraint(kernelId, unboundedWG, {"UNBOUNDED_WG", "WORK_GROUP_SIZE_X"});
     ...
 \end{lstlisting}
