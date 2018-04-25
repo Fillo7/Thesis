@@ -673,11 +673,46 @@ of CLTune code for following features being reused:
 The new tuner structure is further discussed in chapter \ref{ktt-structure}.
 
 \section{Overview of KTT functionality}
+This section describes different usage scenarios supported by KTT framework and provides a high-level overview of the steps performed in each scenario.
+
+\subsection{Single kernel tuning}
+The simplest scenario which is also supported by all of the previously discussed frameworks is offline tuning of a single kernel. The tuning process in
+this case is similar to that of CLTune framework. Addition of tuned kernel and its arguments to tuner is followed by definition of tuning parameters.
+Framework then performs the tuning, including handling of kernel executions and buffer management. Tuning results are reported once the operation is
+finished. The entire workflow is illustrated in Figure \ref{ktt-sequence-diagram-single}. A concrete example of this usage scenario is described in
+Section \ref{ktt-simple-usage}.
+
+\subsection{Kernel compositions and host code tuning}
 Todo...
+
+\subsection{Online tuning and software integration}
+Todo...
+
+\clearpage
+\thispagestyle{plain}
+\begin{sidewaysfigure}
+    \begin{adjustwidth}{-3.5cm}{-3.5cm}
+        \includegraphics[width=250mm]{resources/ktt_sequence_diagram_single.jpg}
+    \end{adjustwidth}
+    \caption{Diagram showcasing offline tuning of a single kernel.}
+    \label{ktt-sequence-diagram-single}
+\end{sidewaysfigure}
+\clearpage
+
+\clearpage
+\thispagestyle{plain}
+\begin{sidewaysfigure}
+    \begin{adjustwidth}{-3.5cm}{-3.5cm}
+        \includegraphics[width=250mm]{resources/ktt_sequence_diagram_composite.jpg}
+    \end{adjustwidth}
+    \caption{Diagram showcasing offline tuning of a kernel composition utilizing tuning manipulator.}
+    \label{ktt-sequence-diagram-composite}
+\end{sidewaysfigure}
+\clearpage
 
 \section{KTT API}
 KTT framework API provides users with methods which can be used to develop and tune OpenCL or CUDA applications. It is split into three major
-classes, some basic methods were inspired by CLTune. It is available in C++ language.
+classes, some basic methods were inspired by CLTune. It is written in C++ language.
 
 KTT framework can be acquired from GitHub as a fully open-source library with prebuilt binaries being available for certain platforms. Manual library
 compilation is also possible by using build tool premake5, C++14 compiler and CUDA or OpenCL distribution. Supported operating systems include Linux
@@ -1053,6 +1088,7 @@ void updateArgumentVectorAsync(const ArgumentId id, const void* argumentData, co
 \end{figure}
 
 \section{Example of API usage}
+\label{ktt-simple-usage}
 Figures \ref{ktt-api-usage-reference} and \ref{ktt-api-usage} contain a simple example of using KTT to tune OpenCL vector addition kernel (shown in
 Figure \ref{vector_addition}).
 
@@ -1182,14 +1218,17 @@ Functionality of the following components is further described in this chapter:
     \item Manipulator interface
 \end{itemize}
 
+\clearpage
+\thispagestyle{plain}
 \begin{sidewaysfigure}
     \begin{adjustwidth}{-3.5cm}{-3.5cm}
-        \includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}
+        \includegraphics[width=250mm]{resources/ktt_class_diagram.jpg}  
     \end{adjustwidth}
     \caption{KTT class diagram. Note that two dependencies between kernel runner / kernel manager and kernel runner / argument manager were omitted
     in order to improve readability without severely impacting diagram accuracy.}
     \label{ktt-class-diagram}
 \end{sidewaysfigure}
+\clearpage
 
 \section{Tuner and tuner core}
 Tuner component represents the main part of public API. Its methods were described in chapter \ref{ktt-api}. In order to hide internal framework
