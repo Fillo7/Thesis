@@ -678,15 +678,29 @@ This section describes different usage scenarios supported by KTT framework and 
 \subsection{Single kernel tuning}
 The simplest scenario which is also supported by all of the previously discussed frameworks is offline tuning of a single kernel. The tuning process in
 this case is similar to that of CLTune framework. Addition of tuned kernel and its arguments to tuner is followed by definition of tuning parameters.
-Framework then performs the tuning, including handling of kernel executions and buffer management. Tuning results are reported once the operation is
+Framework then performs the tuning, including handling of kernel execution and buffer management. Tuning results are reported once the operation is
 finished. The entire workflow is illustrated in Figure \ref{ktt-sequence-diagram-single}. A concrete example of this usage scenario is described in
 Section \ref{ktt-simple-usage}.
 
 \subsection{Kernel compositions and host code tuning}
-Todo...
+A more complex situation is tuning of a computation which involves execution of multiple kernels and performs portion of a computation on a CPU (e.g.,
+output from one kernel organized in structure of arrays layout is transformed in a CPU code into array of structures layout and then used as input for
+other kernel). Solution provided by KTT framework for such scenarios is called tuning manipulator, which enables users to customize portion of the
+framework's code that is responsible for kernel execution and buffer management, and optionally perform some part of computation directly in C++ code.
+The general usage is shown in Figure \ref{ktt-sequence-diagram-composite}. Further information about manipulators can be found in Section
+\ref{ktt-manipulator}. Specific examples utilizing kernel compositions and tuning manipulators are located in Chapter \ref{ktt-advanced-usage}.
 
 \subsection{Online tuning and software integration}
-Todo...
+The two previous sections described situations involving tuning of standalone computations. However, KTT framework also supports integration into other
+applications. There are two possible usage scenarios:
+\begin{itemize}
+    \item Tuning is performed at the start of application, which can then transparently continue its computation. Tuning is integrated directly with
+    the application and there is no need for separate tuning program.
+    \item Tuning is performed at the time of computation. Application executes kernels and uses their output while KTT transparently changes tuning
+    parameters and searches for the best configuration. This scenario is referred to as online tuning and is beneficial in cases when kernel running
+    time dominates over tuning overhead as all of the kernel executions contribute to final result. An example of this way of usage is in Chapter
+    \ref{ktt-advanced-usage}.
+\end{itemize}
 
 \clearpage
 \thispagestyle{plain}
@@ -1489,11 +1503,102 @@ private:
 \end{adjustwidth}
 \end{figure}
 
+\clearpage
 \section{Sorting example with kernel compositions}
 Todo...
 
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+int main(int argc, char** argv) {
+    // Initialize platform / device index and path to kernel file.
+    ...
+    ktt::Tuner tuner(platformIndex, deviceIndex);
+    std::vector<ktt::KernelId> kernelIds(3);
+    const ktt::DimensionVector ndRangeDimensions(1);
+    const ktt::DimensionVector workGroupDimensions(1);
+    
+    kernelIds[0] = tuner.addKernelFromFile(kernelFile, std::string("reduce"), ndRangeDimensions, workGroupDimensions);
+    kernelIds[1] = tuner.addKernelFromFile(kernelFile, std::string("top_scan"), workGroupDimensions, workGroupDimensions);
+    kernelIds[2] = tuner.addKernelFromFile(kernelFile, std::string("bottom_scan"), ndRangeDimensions, workGroupDimensions);
+    
+    // Addition of kernel arguments.
+    ...
+    ktt::KernelId compositionId = tuner.addComposition("sort", kernelIds, std::make_unique<TunableSort>(kernelIds, size, inId, outId, isumsId, sizeId, localMem1Id, localMem2Id, localMem3Id, numberOfGroupsId, shiftId));
+    tuner.setCompositionKernelArguments(compositionId, kernelIds[0], std::vector<size_t>{inId, isumsId, sizeId, localMem1Id, shiftId});
+    tuner.setCompositionKernelArguments(compositionId, kernelIds[1], std::vector<size_t>{isumsId, numberOfGroupsId, localMem2Id});
+    tuner.setCompositionKernelArguments(compositionId, kernelIds[2], std::vector<size_t>{inId, isumsId, outId, sizeId, localMem3Id, shiftId});
+    
+    tuner.addParameter(compositionId, "FPVECTNUM", {4, 8, 16});
+    tuner.addParameter(compositionId, "LOCAL_SIZE", {128, 256, 512});
+    tuner.addParameter(compositionId, "GLOBAL_SIZE", {512, 1024, 2048, 4096, 8192, 16384, 32768});
+    auto workGroupConstraint = [](std::vector<size_t> vector) {return vector.at(0) != 128 || vector.at(1) != 32768;};
+    tuner.addConstraint(compositionId, workGroupConstraint, {"LOCAL_SIZE", "GLOBAL_SIZE"});
+    
+    tuner.setReferenceClass(compositionId, std::make_unique<ReferenceSort>(in), std::vector<ktt::ArgumentId>{outId});
+    tuner.tuneKernel(compositionId);
+    tuner.printResult(compositionId, std::string("sort_result.csv"), ktt::PrintFormat::CSV);
+    return 0;
+}
+\end{lstlisting}
+\caption{Sorting host program.}
+\label{sort-example-main}
+\end{adjustwidth}
+\end{figure}
+
+\begin{figure}
+\footnotesize
+\begin{adjustwidth}{-1cm}{-1cm}
+\begin{lstlisting}
+void launchComputation(const ktt::KernelId) override {
+    const int radix_width = 4;
+    std::vector<ktt::ParameterPair> parameterValues = getCurrentConfiguration();
+    int localSize = (int)getParameterValue("LOCAL_SIZE", parameterValues);
+    const ktt::DimensionVector workGroupDimensions(localSize);
+    int globalSize = (int)getParameterValue("GLOBAL_SIZE", parameterValues);
+    const ktt::DimensionVector ndRangeDimensions(globalSize);
+    
+    int numberOfGroups = globalSize / localSize;
+    updateArgumentScalar(numberOfGroupsId, &numberOfGroups);
+    updateArgumentLocal(localMem1Id, localSize);
+    updateArgumentLocal(localMem2Id, 2 * localSize);
+    updateArgumentLocal(localMem3Id, 2 * localSize);
+    int isumsSize = (numberOfGroups * 16 * sizeof(unsigned int));
+    std::vector<unsigned int> is(isumsSize);
+    updateArgumentVector(isumsId, is.data(), isumsSize);
+    
+    bool inOutSwapped = false;
+    for (int shift = 0; shift < sizeof(unsigned int) * 8; shift+=radix_width) {
+        updateArgumentScalar(shiftId, &shift);
+        bool even = ((shift / radix_width) % 2 == 0) ? true : false;
+        if (even) {
+            changeKernelArguments(kernelIds[0], {inId, isumsId, sizeId, localMem1Id, shiftId});
+        } else {
+            changeKernelArguments(kernelIds[0], {outId, isumsId, sizeId, localMem1Id, shiftId});
+        }
+        
+        runKernel(kernelIds[0], ndRangeDimensions, workGroupDimensions);
+        runKernel(kernelIds[1], workGroupDimensions, workGroupDimensions);
+        runKernel(kernelIds[2], ndRangeDimensions, workGroupDimensions);
+        
+        swapKernelArguments(kernelIds[2], inId, outId);
+        if (shift + radix_width < sizeof(unsigned int) * 8)
+            inOutSwapped = !inOutSwapped;
+    }
+    if (inOutSwapped)
+        copyArgumentVector(outId, inId, size);
+}
+\end{lstlisting}
+\caption{Computation method inside tuning manipulator in sorting example.}
+\label{sort-example-manipulator}
+\end{adjustwidth}
+\end{figure}
+
 \section{Integrating KTT into software and online auto-tuning}
 Todo...
+
+\FloatBarrier
 
 \chapter{Conclusion}
 The framework developed as a part of this thesis contains all the functionality needed to fulfill the assignment. Certain features such as tuning
