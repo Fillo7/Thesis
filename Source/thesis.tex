@@ -157,7 +157,7 @@ repeat the optimization process again.
 An alternative solution is a technique called auto-tuning where a system, which supports this technique, is capable of empirically optimizing its
 parameters in order to perform its task more efficiently. Auto-tuning is a general technique with broad range of applications, which include areas such
 as network protocols, compilers and database systems. This thesis focuses on a specific form of auto-tuning called code variant auto-tuning and its
-application on programs written in OpenCL and CUDA API. In this version of auto-tuning, program code contains parameters which, depending on their value,
+application on programs written in OpenCL and CUDA. In this version of auto-tuning, program code contains parameters which, depending on their value,
 affect performance of a computation on particular device. For example, there might be a parameter which controls length of a vector type of some variable.
 Optimal values of these parameters might differ for various devices based on their hardware capabilities. Parametrized code is then launched repeatedly
 using different combinations of parameters in order to find the best configuration for a particular device empirically.
@@ -168,13 +168,13 @@ support simpler usage scenarios. The aim of this thesis was to develop an auto-t
 situations where computation is split into several smaller functions. Additionally, the framework should be written in a way which would allow its easy
 integration into existing software and make it possible to perform online auto-tuning -- combination of auto-tuning and regular computation.
 
-Apart from introduction and conclusion, the thesis is split into five main chapters. Chapter two provides description of two compute APIs supported
+Apart from introduction and conclusion, the thesis is split into five main chapters. Chapter two provides description of the compute APIs supported
 by the new framework. It also includes possible areas of auto-tuning utilization in these APIs. The third chapter serves as an introduction to
-auto-tuning, presents several existing auto-tuning frameworks and compares their strengths and weaknesses.
+auto-tuning, it presents several existing auto-tuning frameworks and compares their strengths and weaknesses.
 
 The following two chapters are dedicated to KTT (Kernel Tuning Toolkit) framework, which was developed in this thesis. The former provides motivation for
 development of a new framework and focuses on describing its public API. The latter includes an overview of its internal structure. The sixth chapter
-presents several scenarios of the new framework utilization. Conclusion provides summary of the thesis results and lists several possible areas for
+presents several scenarios of the new framework utilization. The conclusion provides a summary of thesis results and lists several possible areas for
 future work.
 
 \chapter{Compute APIs and possibilities for auto-tuning}
@@ -206,7 +206,7 @@ synchronization and retrieval of results. OpenCL API defines several important s
     structures have to be tied to a specific context. Context is created for one or more OpenCL devices.
     \item \textit{cl\_command\_queue} -- All commands which are executed directly on an OpenCL device have to be submitted inside a command queue. It
     is possible to initialize multiple command queues within a single context in order to overlap independent operations.
-    \item \textit{cl\_mem} -- Data which is directly accessed by kernel has to be bound to an OpenCL buffer, which is referenced by a cl\_mem variable.
+    \item \textit{cl\_mem} -- Data which is directly accessed by a kernel has to be bound to an OpenCL buffer, which is referenced by a cl\_mem variable.
     This includes both scalar and vector arguments. It is possible to specify buffer memory location (device or host memory) and access type (read-only,
     read-write, write-only).
     \item \textit{cl\_program} -- A variable which references an OpenCL device program compiled from OpenCL C source file. Program can be shared by
@@ -232,15 +232,15 @@ has its own \textit{private memory} (memory which is mapped to e.g., CPU or GPU 
 
 Work-items are organized into a larger structure called \textit{work-group}, from which they all have access to \textit{local memory} (e.g., GPU shared
 memory). Work-group is executed on a single \textit{compute unit} (e.g., CPU core, GPU streaming multiprocessor). It is possible for multiple work-groups
-to be executed on the same compute unit. OpenCL work-group can have up to three dimensions. Number and size of dimensions affects work-item indexing
-within work-group.
+to be executed on the same compute unit. OpenCL work-group can have up to three dimensions. Number and size of dimensions affect work-item indexing
+within a work-group.
 
 Individual work-groups are organized into \textit{NDRange} (N-Dimensional Range). At NDRange level, it is possible to address two types of memory --
 \textit{global memory} and \textit{constant memory}. Global memory (e.g., CPU main memory, GPU global memory) is usually very large but has high
 latency. On the other hand, constant memory generally has small capacity but lower latency. It can be utilized to store read-only data. Certain devices
 such as CPUs do not have hardware support for constant memory and usually store variables marked with constant memory keyword in global memory.
-Organization and indexing of work-groups inside NDRange works in the same way as for work-items within work-group. The entire hierarchy is illustrated
-in Figure \ref{opencl-hierarchy}.
+Organization and indexing of work-groups inside an NDRange works in the same way as for work-items within a work-group. The entire hierarchy is
+illustrated in Figure \ref{opencl-hierarchy}.
 
 \begin{figure}
     \begin{center}
@@ -312,7 +312,7 @@ equivalent term in the other API.
 \end{table}
 
 Difference in global indexing plays an important role during addition of tuning parameters which affect either grid dimensions or block dimensions.
-In OpenCL, the NDRange size in a given dimension is specified as a size of work-group multiplied by number of work-groups. However, in CUDA the grid
+In OpenCL, an NDRange size in a given dimension is specified as size of a work-group multiplied by number of work-groups. However, in CUDA a grid
 size is specified only as a number of blocks. This is rather inconvenient for porting auto-tuned programs from one API to the other. The problem
 will be further elaborated upon in Chapter \ref{ktt-api}.
 
@@ -343,7 +343,7 @@ memory would be inefficient for large number of devices. This can be solved by u
 
 \subsection{Data layout in memory}
 Composite data can be organized into memory in multiple ways. For example, data about 3D vertex coordinates can be split into three separate arrays
-which are then stored in memory one by one. Another way to organize the same data is to first put all information about vertex into a structure and
+which are then stored in memory consecutively. Another way to organize the same data is to first put all information about vertex into a structure and
 then create an array of these structures. The former layout is commonly referred to as structure of arrays (SoA), while the latter is called array
 of structures (AoS). The difference is illustrated with Figure \ref{aos_soa}.
 
@@ -395,8 +395,8 @@ The following terms are commonly encountered in subsequent chapters and their kn
 While there are no strict requirements over functionality that should be available in auto-tuning frameworks, there are several features which are either
 commonly implemented by existing frameworks or desired by users. They include the following: 
 \begin{itemize}
-    \item Scope of tuning parameters -- While tuning parameters are supported by essentially all frameworks, not all of them allow parameters to affect
-    all parts of a program. For example, some frameworks support only parameters which affect kernel code but not host code.
+    \item Scope of tuning parameters -- While definition of tuning parameters is supported by essentially all frameworks, not all of them allow parameters
+    to affect all parts of a program. For example, some frameworks support only parameters which affect kernel code but not host code.
     \item Parameter constraints -- Ability to mark certain tuning configurations as invalid due to incompatible combinations of tuning parameter values.
     Such configurations should be excluded from configuration space traversal, which can lead to improved usability and performance.
     \item Advanced search methods -- Support for different methods which offer reasonable performance and quality of results.
@@ -480,7 +480,7 @@ __kernel void tunedKernel(MEMORY_TYPE float* bufferA, ...)
 
 \section{Kernel Tuner}
 Kernel Tuner \cite{kerneltuner} is another open-source auto-tuning framework. It supports tuning of OpenCL and CUDA kernels as well as regular C functions,
-though in the last case, user is responsible for measuring execution duration. API is provided for Python. Compared to CLTune, it provides more utility
+though in the last case, user is responsible for measuring execution duration. API is provided in Python language. Compared to CLTune, it provides more utility
 methods, for example ability to set kernel compiler options, measuring execution duration in multiple iterations to increase accuracy and validating output
 with user-defined precomputed answer rather than being restricted to reference kernel.
 
@@ -524,7 +524,7 @@ if __name__ == "__main__":
 \section{OpenTuner}
 Unlike other mentioned tuners, OpenTuner \cite{opentuner} is an auto-tuning framework which can be used to tune programs written in essentially any
 language. It supports multiple forms of auto-tuning, for example tuning of compiler flags or CPU frequencies as well as code variant auto-tuning. The
-API is provided for Python. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. In case of code
+API is provided in Python language. Due to tuner's more generic nature, users are responsible for writing more sections of code themselves. In case of code
 variant auto-tuning, this involves writing a method which adds parameter definitions from tuner-generated configurations to tuned program and compiles
 it. The other listed frameworks have this functionality already built-in. Other shortcomings include problems with integration into software and lack of
 complete API documentation. Framework does not seem to be actively developed anymore with majority of the development being done before 2017.
@@ -532,7 +532,7 @@ complete API documentation. Framework does not seem to be actively developed any
 While the other frameworks use preprocessor definitions to export tuning parameters into code, OpenTuner does not have any specific way of parameter
 handling. The way parameters become visible in tuned code depends on capabilities of target programming language and on the user-written method for
 parameter export. Figure \ref{opentuner-example} contains an example of OpenTuner configuration for tuning of C code. Tuning parameters are added
-to code through compiler command line arguments.
+to code through compiler flags.
 
 \begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -574,7 +574,7 @@ ATF (Auto-Tuning Framework) \cite{atf} is a recently released framework which of
 OpenTuner, it supports several forms of auto-tuning and multiple languages. Unlike other mentioned frameworks, it relies on annotating user code
 with directives and there is therefore no need to write separate tuning program. Another advantage is the ability to generate configuration space
 more efficiently by utilizing multi-threading and pre-filtering of parameter values based on constraints. This improves tuner performance in
-situations where many tuning parameters with large number of valid values are used.
+situations where many tuning parameters with a large number of valid values are used.
 
 ATF also supports various abort conditions to end exploration of search space during offline tuning. These include conditions based on absolute tuning
 time, number of explored configurations and relative speedup within the last tested configurations. However, several shortcomings which were present
@@ -622,7 +622,7 @@ atf::cond::duration<std::chrono::minutes>(2))(WPT, LS)(cf_saxpy);
 \end{figure}
 
 \section{Comparison of frameworks}
-Table \ref{frameworks-comparison} showcases state of features in previously discussed frameworks. Note that state of the supported features may change
+Table \ref{frameworks-comparison} showcases state of features in previously discussed frameworks. Note that the state of supported features may change
 as several mentioned frameworks are still actively developed.
 
 \begin{sidewaysfigure}[ht]
@@ -660,9 +660,9 @@ Originally, CLTune was planned to be used as a basis for the new framework. Extr
 However, this has proved to be rather problematic. While CLTune API is written in a clean and user-friendly manner, its internal structure made it
 difficult to extend its functionality. Large part of the internal code is placed into a small number of very long methods which mix together operations
 such as argument handling and result validation with access to compute API functions. This made it difficult to introduce new features without refactoring
-large amount of code.
+large portion of code.
 
-Eventually, it was decided to write a completely new framework named Kernel Tuning Toolkit. Baseline portion of KTT API remained similar to CLTune,
+It was eventually decided to write a completely new framework named Kernel Tuning Toolkit. Baseline portion of KTT API remained similar to CLTune,
 so it would be easy to port existing programs. However, the internal structure was completely rewritten from scratch, with only very small portions
 of CLTune code for following features being reused:
 \begin{itemize}
@@ -728,9 +728,9 @@ applications. There are two possible usage scenarios:
 KTT framework API provides users with methods which can be used to develop and tune OpenCL or CUDA applications. It is split into three major
 classes, some basic methods were inspired by CLTune. It is written in C++ language.
 
-KTT framework can be acquired from GitHub as a fully open-source library with prebuilt binaries being available for certain platforms. Manual library
-compilation is also possible by using build tool premake5, C++14 compiler and CUDA or OpenCL distribution. Supported operating systems include Linux
-and Windows.
+KTT framework can be acquired from GitHub\footnote{Repository link: https://github.com/Fillo7/KTT} as a fully open-source library with prebuilt
+binaries being available for certain platforms. Manual library compilation is also possible by using a build tool premake5, C++14 compiler and CUDA
+or OpenCL distribution. Supported operating systems include Linux and Windows.
 
 The described API corresponds to version 0.6 of KTT framework. It is the first release candidate version and contains all functionality that was
 planned to be implemented as part of this thesis.
@@ -751,7 +751,7 @@ Tuner class makes up the main part of KTT API. It includes methods which impleme
 In order to access the API methods, tuner object has to be created. There are currently three versions of tuner constructors available (Figure 
 \ref{ktt-constructors}). They allow specification of compute API (either OpenCL or CUDA), platform index, device index and number of utilized compute
 queues. OpenCL API with one compute queue is the default setting. Indices are assigned to platforms and devices by KTT framework, they can be retrieved
-with a method.
+with a tuner method.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -769,8 +769,8 @@ Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI A
 Kernels can be added to a tuner from a file or C++ string (Figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
 default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside \textit{DimensionVector}
 objects, which are a part of KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be referenced
-by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels included inside a composition. In order to use
-compositions, user additionally has to define a tuning manipulator class whose usage is detailed in Section \ref{ktt-manipulator}.
+by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels which should be included inside a composition. In order
+to use compositions, user additionally has to define a tuning manipulator whose usage is detailed in Section \ref{ktt-manipulator}.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -791,7 +791,7 @@ types (e.g., struct, class). Arguments are bound to kernels by using a method wh
 them to be shared among multiple kernels. The mentioned methods can be seen in Figure \ref{ktt-argument-methods}.
 
 Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from where
-argument data is accessed by kernel (device or host) and whether argument copy should be made by tuner. By default, copies of all vector arguments
+argument data is accessed by kernel (device or host) and whether argument copy should be made by the tuner. By default, copies of all vector arguments
 are made by tuner, so the original vectors remain modifiable by user without interfering with tuning process. In case argument is placed in host
 memory, it is possible to utilize zero-copy feature, which means that kernel has direct access to buffer which was initialized from host code. This
 functionality is supported by both CUDA and OpenCL. All of the vector argument handling options are illustrated with Figure \ref{ktt-buffer-diagram}.
@@ -831,7 +831,7 @@ separately, supported modifiers include addition, subtraction, multiplication an
 
 If certain combinations of tuning parameters are invalid or unsupported by a kernel source code, they can be eliminated by using parameter constraints.
 Constraint is a function which accepts list of parameter values for specified parameters and returns a boolean result which signifies whether the
-combination is valid or not. Constraint conditions are defined by user.
+combination is valid or not. Constraint conditions are defined by users.
 
 Tuning parameters for kernel compositions are added separately and are shared by all kernels inside a composition. Individual kernels outside compositions
 are not affected by composition parameters either.
@@ -870,7 +870,7 @@ methods employ probabilistic techniques in order to find configurations with goo
 
 Output retrieval is supported for kernel running in the same fashion as for online tuning. Kernels can be run in any valid tuning configuration which is
 specified by user. Output validation is not performed during kernel running. Kernels can be run using the best found configuration immediately after the
-tuning finishes so that splitting auto-tuning and production applications is not necessary.
+tuning has finished which means that splitting auto-tuning and production applications is not necessary.
 
 In basic case, launch of a kernel is handled automatically by a tuner after the initial setup. However, for scenarios where part of a computation
 happens in C++ code or kernel compositions are utilized, it is necessary to implement a \textit{TuningManipulator} and then bind it to corresponding
@@ -926,7 +926,7 @@ void setArgumentComparator(const ArgumentId id, const std::function<bool(const v
 \end{figure}
 
 \subsection{Tuning results retrieval}
-Each tuning result includes list of parameter values, global and local thread sizes and corresponding duration of computation. List of all tuning
+Each tuning result includes a list of parameter values, global and local thread sizes and corresponding duration of computation. List of all tuning
 results for specified kernel can be printed either to a C++ output stream or a file. Supported print formats include verbose format intended for log
 files or terminals and CSV (comma-separated values) format which is useful for subsequent processing and analysis of results.
 
@@ -1505,7 +1505,27 @@ private:
 
 \clearpage
 \section{Sorting example with kernel compositions}
-Todo...
+This example showcases tuning of a radix sort computation on an array of integers which utilizes three separate kernels. The first kernel builds
+a per-block histogram of each digit. The histograms are then used as an input for the second kernel which performs a top-level exclusive scan on them.
+The scanned histograms are then processed by the final kernel which also writes a final result into global memory. The original kernels without tuning
+parameters were taken from SHOC Benchmark Suite \cite{shoc-kernel}.
+
+The example is split into two figures -- Figure \ref{sort-example-main} contains a host program and Figure \ref{sort-example-manipulator} includes
+a definition of launchComputation() method inside tuning manipulator.
+
+The host program begins with initialization of tuner and kernel dimensions (lines 4-7). Since both NDRange and work-group size for all kernels are
+controlled with tuning manipulator, they are set here to 1. Next, individual kernels (lines 9-11) and their arguments are added to tuner. The argument
+addition is not included in this example due to its length, however it happens in a similar way as in previous examples. Line 15 contains addition of
+kernel composition with specification of included kernels and creation of composition manipulator. The ids of kernel arguments that will be updated are
+once again passed into its constructor. Kernel arguments are then set individually for each kernel inside the newly defined composition (lines 16-18).
+The kernels in this example support three different tuning parameters (lines 20-22). They are all fairly standard -- the first parameter controls
+utilization of vector data types, the second one affects size of a work-group and the final parameter changes NDRange size and therefore affects number
+of work-groups required to compute the result. Parameters are defined at composition level and are visible to all of the included kernels. It remains
+for user to decide exactly which kernels are affected by individual parameters inside kernel source code. There is a single combination of "LOCAL\_SIZE"
+and "GLOBAL\_SIZE" parameters that is unsupported by implemented kernels. It is eliminated with a definition of constraint (line 24). The figure ends with
+an addition of reference class that performs the sorting on a CPU, launch of a tuning and printing of results (lines 26-28).
+
+The second figure contains a computation launch method inside manipulator. Todo: describe the method
 
 \begin{figure}
 \footnotesize
@@ -1536,7 +1556,7 @@ int main(int argc, char** argv) {
     auto workGroupConstraint = [](std::vector<size_t> vector) {return vector.at(0) != 128 || vector.at(1) != 32768;};
     tuner.addConstraint(compositionId, workGroupConstraint, {"LOCAL_SIZE", "GLOBAL_SIZE"});
     
-    tuner.setReferenceClass(compositionId, std::make_unique<ReferenceSort>(in), std::vector<ktt::ArgumentId>{outId});
+    tuner.setReferenceClass(compositionId, std::make_unique<ReferenceSort>(input), std::vector<ktt::ArgumentId>{outId});
     tuner.tuneKernel(compositionId);
     tuner.printResult(compositionId, std::string("sort_result.csv"), ktt::PrintFormat::CSV);
     return 0;
@@ -1552,19 +1572,19 @@ int main(int argc, char** argv) {
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 void launchComputation(const ktt::KernelId) override {
-    const int radix_width = 4;
+    const int radixWidth = 4;
     std::vector<ktt::ParameterPair> parameterValues = getCurrentConfiguration();
-    int localSize = (int)getParameterValue("LOCAL_SIZE", parameterValues);
+    size_t localSize = getParameterValue("LOCAL_SIZE", parameterValues);
     const ktt::DimensionVector workGroupDimensions(localSize);
-    int globalSize = (int)getParameterValue("GLOBAL_SIZE", parameterValues);
+    size_t globalSize = getParameterValue("GLOBAL_SIZE", parameterValues);
     const ktt::DimensionVector ndRangeDimensions(globalSize);
     
-    int numberOfGroups = globalSize / localSize;
+    size_t numberOfGroups = globalSize / localSize;
     updateArgumentScalar(numberOfGroupsId, &numberOfGroups);
     updateArgumentLocal(localMem1Id, localSize);
     updateArgumentLocal(localMem2Id, 2 * localSize);
     updateArgumentLocal(localMem3Id, 2 * localSize);
-    int isumsSize = (numberOfGroups * 16 * sizeof(unsigned int));
+    size_t isumsSize = (numberOfGroups * 16 * sizeof(unsigned int));
     std::vector<unsigned int> is(isumsSize);
     updateArgumentVector(isumsId, is.data(), isumsSize);
     
