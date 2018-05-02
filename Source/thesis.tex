@@ -946,7 +946,7 @@ std::vector<ParameterPair> getBestConfiguration(const KernelId id)
 \end{figure}
 
 \subsection{Platform and device information retrieval}
-When using KTT framework for the first time on a system, it is useful to retrieve indices for available platforms and devices, which are then used for
+When using KTT framework for the first time on a system, it is useful to retrieve indices for available platforms and devices, which are then used during
 proper tuner initialization. The assigned indices and corresponding platform and device names can be printed to specified C++ output stream. It is
 furthermore possible to retrieve more detailed information about individual platforms and devices, such as list of supported extensions, memory
 capacities, number of compute units and others (Figure \ref{ktt-information-methods}).
@@ -990,12 +990,12 @@ void setAutomaticGlobalSizeCorrection(const bool flag)
 
 \section{Reference class}
 \label{ktt-reference-class}
-Reference class is an interface provided by KTT framework used for validating of kernel output via implementing a C++ function. In order to utilize it,
+Reference class is an interface provided by KTT framework used for validating kernel output via implementation of a C++ method. In order to utilize it,
 a new class which publicly inherits from \textit{ReferenceClass} interface must be defined by a user. For the resulting class to be valid, it is
 necessary to implement two virtual methods and optionally override one more method (Figure \ref{ktt-reference-methods}).
 
 The first method should implement computation of a reference output. The second method is then used to retrieve the prepared output. The third, optional
-method can be overriden if the resulting output size is smaller than the size of corresponding validated kernel argument. This is useful for situations
+method can be overriden if the resulting output size is smaller than the size of corresponding validated kernel argument. This is useful in situations
 where only a part of the argument is validated.
 
 Implemented class can be then assigned to a tuner by using a method from tuner API described in Section \ref{ktt-validation}. The implemented
@@ -1056,7 +1056,7 @@ std::vector<ParameterPair> getCurrentConfiguration()
 \end{figure}
 
 \subsection{Kernel argument and buffer management}
-When a kernel is run iteratively to produce complete result, it is often desirable to modify the input data between iterations. Tuning manipulator
+When a kernel is run iteratively to produce a complete result, it is often desirable to modify the input data between iterations. Tuning manipulator
 interface provides methods for this scenario. It is possible to modify both scalar and vector arguments. It is also possible to retrieve data of
 vector arguments, which is useful, for example when the data has to be preprocessed on a CPU in-between iterative kernel launches (Figure
 \ref{ktt-manipulator-buffer-methods}).
@@ -1081,7 +1081,7 @@ void changeKernelArguments(const KernelId id, const std::vector<ArgumentId>& arg
 
 \subsection{Compute queues and asynchronous operations}
 In real-world computations, multiple compute queues are often utilized in order to overlap independent parts of a computation and thus increase
-performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in specified queue and device synchronization.
+performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in a specified queue and device synchronization.
 Number of queues which are available corresponds to user-specified amount during tuner initialization. Queues are referenced with handles provided by KTT.
 Methods which can be run asynchronously include kernel running and operations with vector kernel arguments. It is possible to synchronize either only
 specified queue or all queues which effectively synchronizes the entire device (Figure \ref{ktt-manipulator-asynchronous-methods}).
@@ -1113,16 +1113,16 @@ Since KTT validation component works directly with computed data, the method nee
 pointer to the entire vector container. Because it is possible to validate multiple arguments with single reference class, this function also checks
 for which argument the reference result should be returned.
 
-Second figure then shows the main part of a host program. In this example, a kernel is tuned using single tuning parameter which controls size of a
+Second figure then shows the main part of a host program. Kernel in this example is tuned using a single tuning parameter which controls size of a
 work-group -- four possible parameter values are specified. Lines 5-16 contain initialization of data, global and local sizes. NDRange size is
 initialized to total number of elements inside vector so that each element is processed by a single work-item. For simplicity's sake, it is assumed that
 number of elements is a multiple of 32. Work-group size is initialized to one because it will be controlled with tuning parameter which is added later.
 Tuner is initialized (line 18) by specifying platform and device index, followed by addition of tuned kernel and its arguments (lines 19-24). The next
 line includes instantiation of previously defined reference class and its addition to tuner. Line 28 contains definition of a tuning parameter which
-multiplies work-group size in dimension x. Since the default size was defined as 1, this effectively sets the resulting size to this parameter value.
+multiplies work-group size in dimension x. Since the default size was defined as 1, this effectively sets the resulting size to the parameter's value.
 Once all the configuration is done, tuning of kernel can be started (line 29) and is followed by printing of results to standard output stream (line 30).
 
-More complex examples, including usage of tuning manipulator interface are covered in Chapter \ref{ktt-advanced-usage}.
+More complex examples, including usage of tuning manipulator interface, are covered in Chapter \ref{ktt-advanced-usage}.
 
 \begin{figure}
 \footnotesize
@@ -1249,8 +1249,8 @@ Tuner component represents the main part of public API. Its methods were describ
 components from users, it utilizes pointer to implementation idiom. The public header (.h) file contains only declaration of implementation class
 (i.e., tuner core) and a pointer to its instance. However, the actual tuner core header with method definitions is directly included only in tuner
 implementation (.cpp) file. This file is needed during compilation, but the built library can be then distributed with tuner header only. There is
-no need to include internal headers for components such as tuner core, which makes upgrading to newer version of framework easier in certain situations
-(e.g., if methods in tuner core are modified in newer version of the framework, but methods in tuner API remain the same, software which utilizes the
+no need to include internal headers for components such as tuner core, which makes upgrading to newer versions of the framework easier in certain situations
+(e.g., if methods in tuner core are modified in newer versions of the framework, but methods in tuner API remain the same, software which utilizes the
 framework only needs to replace library file without recompilation).
 
 Tuner core makes up the main internal part of the framework. It owns and manages several smaller components and exposes subset of their functionality
@@ -1275,7 +1275,7 @@ parameters which only affect thread sizes of a specific kernel inside a composit
 
 \section{Argument manager}
 Argument manager stores and generates unique handles for kernel arguments. Arguments inside KTT can store elements with user-defined data types as well as
-built-in data types. This is handled by storing the argument elements as raw data and converting to proper data type when needed (e.g., during result
+built-in data types. This is handled by storing the argument elements as raw data and converting to proper data type only when needed (e.g., during result
 validation). Restriction is that the used data type has to be trivially copyable\footnote{Trivially copyable data type cannot have user-defined
 copy / move constructors, destructor or assignment operators and cannot contain virtual methods, which effectively makes it safe to copy with low-level
 functions such as std::memcpy.}. However, this is not much of a problem because data which is copied into e.g., GPU memory should be trivially copyable
@@ -1283,7 +1283,7 @@ either way.
 
 \section{Tuning runner, configuration manager and result validator}
 Tuning runner and its two subcomponents -- configuration manager and result validator, oversee both offline and online tuning. During offline tuning,
-result validator first computes reference output using reference class or kernel. Configurations generated by a kernel manager are then handed over to
+result validator first computes reference output using a reference class or a kernel. Configurations generated by a kernel manager are then handed over to
 a configuration manager which instantiates a searcher based on user-specified search method. Kernels or kernel compositions are then launched in a loop
 using different configurations. The loop consists of the following steps:
 \begin{enumerate}
@@ -1294,7 +1294,7 @@ using different configurations. The loop consists of the following steps:
     \item Computation duration is reported back to configuration manager, the duration can be utilized by searcher to optimize exploration of
     configuration space. Durations for failed computations or invalid results are reported as infinity.
 \end{enumerate}
-Once the loop finishes, tuning runner performs cleanup and the tuning results are stored for later retrieval.
+Once the loop has finished, tuning runner performs cleanup and the tuning results are stored for later retrieval.
 
 Online tuning contains similar steps as offline tuning, except that it performs only single iteration of previously described loop per online tuning
 method invocation. The other important difference is that if result validation is enabled, the reference output has to be recomputed for each
@@ -1309,7 +1309,7 @@ command queues, kernels and events. Other framework components then do not need 
 compute engine interface. This simplifies addition of new compute APIs into KTT and makes it possible to support multiple APIs in a single version of
 KTT library.
 
-Compute engine interface declares several virtual methods which need to be implemented by inheriting class which provides support for specific compute
+Compute engine interface declares several virtual methods which need to be implemented by inheriting class that provides support for specific compute
 API. These include methods for running kernels, managing buffers, retrieving results, synchronizing command queues and querying for information about
 platforms and devices.
 
@@ -1321,13 +1321,13 @@ for individual kernels and compositions are stored inside this component as well
 Motivation for developing tuning manipulator API was to allow users to have greater control over the process of running kernel computations.
 For example, certain computations require running the same kernel multiple times in a loop, computing portion of the result directly in C++ code or
 utilizing multiple kernels. The main KTT API alone does not allow for such functionality because it provides only high-level kernel running methods which
-are easier to use but only support simpler use cases. In order to handle the complex scenarios, users would need to have access to more fine-grained
+are easier to use but only support simpler use cases. In order to handle the complex scenarios, users need to have access to more fine-grained
 functionality, similar to what is offered by compute engine.
 
 However, exposing compute engine methods to public API directly would be problematic for two reasons. Firstly, as KTT framework is further developed,
 declarations of compute engine methods often change in order to support new functionality. This would force users to frequently update their code
-during transitions to newer version of the framework. Secondly, significant number of compute engine methods are intended to be used together as a part
-of single computation (e.g., uploading kernel arguments into buffers followed by launch of a kernel) and having these methods declared in the main API
+during transitions to newer versions of the framework. Secondly, significant number of compute engine methods are intended to be used together as a part
+of single computation (e.g., uploading kernel arguments into buffers followed by a launch of kernel) and having these methods declared in the main API
 along with the high-level methods would cause confusion.
 
 Because of these reasons, tuning manipulator and the related component called manipulator interface were developed. Users can define a class which
@@ -1335,7 +1335,7 @@ inherits from tuning manipulator and consequently gain access to its methods whi
 contains a private pointer to manipulator interface and internally calls its methods. Implementing class for the manipulator interface is a part of
 kernel runner and has direct access to compute engine. When a kernel or a composition utilizing tuning manipulator is run, kernel runner sets the
 manipulator interface pointer inside tuning manipulator to the implementing class and computation may then normally proceed. This way users have access
-to functionality of internal framework components without a need to directly expose these components in public API. 
+to functionality of internal framework components without a need to directly expose these components to public API. 
 
 \chapter{Advanced KTT usage examples}
 \label{ktt-advanced-usage}
@@ -1525,7 +1525,14 @@ for user to decide exactly which kernels are affected by individual parameters i
 and "GLOBAL\_SIZE" parameters that is unsupported by implemented kernels. It is eliminated with a definition of constraint (line 24). The figure ends with
 an addition of reference class that performs the sorting on a CPU, launch of a tuning and printing of results (lines 26-28).
 
-The second figure contains a computation launch method inside manipulator. Todo: describe the method
+The second figure contains a computation launch method inside manipulator. The method first retrieves configuration and sets the kernel dimensions
+accordingly (lines 2-7). Afterwards, several arguments are updated based on the previously set dimensions (lines 9-16). Currently there is a limitation
+for updating vector arguments -- it is not possible to simply resize the argument without also providing a new data. It is solved by creating an artificial
+buffer with size corresponding to new argument size (lines 15-16). In this case, it does not have a significant negative impact on performance, but vector
+argument resize method is planned to be added to manipulator API nonetheless. Result is then computed in iterations with three composition kernels being
+launched with previously set kernel dimensions (lines 28-30). The work in second kernel is done by a single work-group. Additionally, the first and third
+kernels have their input and output buffers swapped on each iteration (lines 21-26, 32). If the final output ends up in input buffer after last iteration,
+it is moved into the correct output buffer and computation is finished (lines 36-37).
 
 \begin{figure}
 \footnotesize
