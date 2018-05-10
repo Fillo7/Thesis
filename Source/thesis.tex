@@ -19,6 +19,8 @@
 \usepackage{lscape}
 \usepackage{rotating}
 \usepackage{placeins}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 \thesissetup
 {
@@ -281,7 +283,7 @@ important role during the framework development:
 \end{itemize}
 Table \ref{api_terms} contains terms used in OpenCL and their counterparts in CUDA. Due to several differences in design, some terms do not have an
 equivalent term in the other API.
-\begin{table}[h]
+\begin{table}[ht]
 \begin{center}
 \begin{tabular}{|*{2}{p{5cm}|}}
     \hline
@@ -687,12 +689,14 @@ A more complex situation is tuning of a computation which involves execution of 
 output from one kernel organized in structure of arrays layout is transformed in a CPU code into array of structures layout and then used as input for
 other kernel). Solution provided by KTT framework for such scenarios is called tuning manipulator, which enables users to customize portion of the
 framework's code that is responsible for kernel execution and buffer management, and optionally perform some part of computation directly in C++ code.
-The general usage is shown in Figure \ref{ktt-sequence-diagram-composite}. Further information about manipulators can be found in Section
-\ref{ktt-manipulator}. Specific examples utilizing kernel compositions and tuning manipulators are located in Chapter \ref{ktt-advanced-usage}.
+The API also provides methods for changing and updating kernel arguments as these can be different for individual kernel executions, which is in contrast
+to single kernel tuning where all the executions happen under the same conditions. The general usage is shown in Figure \ref{ktt-sequence-diagram-composite}.
+Further information about manipulators can be found in Section \ref{ktt-manipulator}. Specific examples utilizing kernel compositions and tuning manipulators
+are located in Chapter \ref{ktt-advanced-usage}.
 
 \subsection{Online tuning and software integration}
-The two previous sections described situations involving tuning of standalone computations. However, KTT framework also supports integration into other
-applications. There are two possible usage scenarios:
+The two previous sections described situations which involved tuning of standalone computations. However, KTT framework also supports integration into
+other applications. There are two possible usage scenarios:
 \begin{itemize}
     \item Tuning is performed at the start of application, which can then transparently continue its computation. Tuning is integrated directly with
     the application and there is no need for separate tuning program.
@@ -701,6 +705,9 @@ applications. There are two possible usage scenarios:
     time dominates over tuning overhead as all of the kernel executions contribute to final result. An example of this way of usage is in Chapter
     \ref{ktt-advanced-usage}.
 \end{itemize}
+Both of these scenarios require the framework to provide access to underlying compute API functionality without too many restrictions as that would
+make the direct integration into software difficult, if not impossible. Additionally, the second scenario requires the framework overhead to be
+minimal so that the speedup gained by utilizing online tuning is more significant than the time lost performing internal framework operations.
 
 \clearpage
 \thispagestyle{plain}
@@ -987,6 +994,19 @@ void setAutomaticGlobalSizeCorrection(const bool flag)
 \label{ktt-utility-methods}
 \end{adjustwidth}
 \end{figure}
+
+\subsection{Error handling}
+There are two basic types of errors that are handled by KTT framework -- errors caused by incorrect API usage (e.g., using invalid kernel or argument
+handle) and kernel execution errors (e.g., a kernel under specific configuration cannot be launched due to insufficient amount of device resources or
+computes incorrect results). In the first case, the framework prints a message describing cause of error and then throws an exception, aborting the entire
+tuning process. The error then has to be corrected by a user.
+
+In the second case, it is undesirable that a single faulty kernel would cause the entire tuning process to be terminated. When a kernel error is
+encountered, a message describing the cause is printed, but the tuning process then continues with next configuration. This works well during offline
+tuning where kernel output is discarded after validation. However, the situation is more complicated during online tuning, as kernel output can be utilized
+by a host application. In this case it is necessary for a host application to check whether computation was successful and possibly recompute the
+corresponding portion of result under different configuration. Before utilizing online tuning, it is best to ensure correctness of computation using
+different combinations of tuning parameters, so that time lost by trying to launch faulty kernels remains minimal.
 
 \section{Reference class}
 \label{ktt-reference-class}
@@ -1343,13 +1363,12 @@ This chapter presents several examples which utilize advanced features of KTT fr
 compositions, online auto-tuning and integration of KTT into existing software. The examples were contributed to KTT framework by multiple authors.
 
 \section{Reduction example with tuning manipulator}
-This example demonstrates tuning of a kernel which performs summation of floating-point numbers contained in a single array. The reduction can be
-computed inside a kernel. It is possible to either finish the entire computation in a single kernel invocation utilizing atomic instructions or
-compute the result iteratively over multiple kernel launches. The second scenario requires usage of tuning manipulator.
+This example demonstrates tuning of a kernel which performs summation of floating-point numbers contained in an array. It is possible to either finish
+the entire computation in a single kernel invocation utilizing atomic instructions or compute the result iteratively over multiple kernel launches. The
+second scenario requires usage of tuning manipulator. The example was originally published in \cite{reduction-example}.
 
-The example is split into three figures -- Figure \ref{reduction-example-main} contains the main part of a host program. Tuning parameters and
-constraints are defined in Figure \ref{reduction-example-parameters} and Figure \ref{reduction-example-manipulator} includes definition of a
-manipulator.
+It is split into three figures -- Figure \ref{reduction-example-main} contains the main part of a host program. Tuning parameters and constraints are
+defined in Figure \ref{reduction-example-parameters} and Figure \ref{reduction-example-manipulator} includes definition of a manipulator.
 
 Host program begins with initialization of data and kernel dimensions (lines 6-17), default NDRange size corresponds to a total number of elements
 rounded up to the nearest higher multiple of 512, which is the largest possible work-group size that kernel in this example utilizes. The following
@@ -1358,23 +1377,23 @@ Since result of the computation is only a single number, validation range is set
 fashion as a reference class (line 34). The manipulator in this example modifies certain kernel arguments whose ids are passed into its constructor.
 The remaining code section (lines 36-37) contains start of a tuning process and printing of results.
 
-Tuning parameters are defined in the second figure (lines 5-9). The first parameter controls size of a work-group, same as in simple example in
-section \ref{ktt-simple-usage}. The next two parameters are used to control number of work-groups. Parameter "UNBOUNDED\_WG" controls whether number
-of work-groups scales based on input size. If the scaling is disabled, then their number is controlled with parameter "WG\_NUM" whose values are set
-to a multiple of available compute units. The number of compute units and several other device parameters can be retrieved through KTT API
+Tuning parameters are defined in Figure \ref{reduction-example-parameters} (lines 5-9). The first parameter controls size of a work-group, same as in
+simple example in section \ref{ktt-simple-usage}. The next two parameters are used to control number of work-groups. Parameter "UNBOUNDED\_WG" controls
+whether number of work-groups scales based on input size. If the scaling is disabled, then their number is controlled with parameter "WG\_NUM" whose
+values are set to a multiple of available compute units. The number of compute units and several other device parameters can be retrieved through KTT API
 (lines 2-3). Parameter "VECTOR\_SIZE" controls which vector data type is used for input buffer. This parameter also divides the global size because
 more elements are processed by a single work-item when longer vector types are used. The last parameter determines whether the computation is done
 in a single kernel execution or iterative kernel launches are utilized. The example also makes use of multiple parameter constraints (lines 11-16).
 For example, the first constraint ensures that only one of the parameters which affect number of work-groups remains active inside a configuration.
 
-Tuning manipulator is defined in the third figure. Apart from constructor, it contains definition of a method which performs the computation. First,
-it retrieves information about current configuration (lines 6-9), including parameters and modified kernel dimensions. If "UNBOUNDED\_WG" parameter
-is inactive, it sets NDRange size based on a value of "WG\_NUM" parameter (lines 10-12). The kernel is then launched (line 13) using the corresponding
-global and local size. In case atomic operations are used, the computation is then finished and tuning manipulator ends. Otherwise kernel is launched
-repeatedly in iterations log(n) times, input size shrinking by half in each iteration (lines 15-36). Because an output from one iteration is used as
-an input in next iteration, the source and destination buffers keep getting swapped (line 22). As the input size continuously shrinks, NDRange size
-and several kernel arguments have to be updated in each iteration (lines 23-28). Once the input size reaches 1, the computation is finished. One extra
-iteration is sometimes performed in order to ensure that result is inside the original destination buffer.
+Tuning manipulator is defined in Figure \ref{reduction-example-manipulator}. Apart from constructor, it contains definition of a method which performs
+the computation. First, it retrieves information about current configuration (lines 6-9), including parameters and modified kernel dimensions. If
+"UNBOUNDED\_WG" parameter is inactive, it sets NDRange size based on a value of "WG\_NUM" parameter (lines 10-12). The kernel is then launched (line 13)
+using the corresponding global and local size. In case atomic operations are used, the computation is then finished and tuning manipulator ends. Otherwise
+kernel is launched repeatedly in O(log(n)) iterations, input size shrinking by a factor of work-group size multiplied by vector length in each iteration
+(lines 15-36). Because an output from one iteration is used as an input in next iteration, the source and destination buffers keep getting swapped (line 22).
+As the input size continuously shrinks, NDRange size and several kernel arguments have to be updated in each iteration (lines 23-28). Once the input size
+reaches 1, the computation is finished. One extra iteration is sometimes performed in order to ensure that result is inside the original destination buffer.
 
 \begin{figure}
 \footnotesize
@@ -1623,7 +1642,122 @@ void launchComputation(const ktt::KernelId) override {
 \end{figure}
 
 \section{Integrating KTT into software and online auto-tuning}
-Todo...
+This section briefly introduces a software for 3D Fourier reconstruction. The introduction is followed by motivation for implementing online auto-tuning
+into this software, description of implementation and evaluation of auto-tuning impact.
+
+\subsection{3D Fourier reconstruction in Xmipp}
+Xmipp\footnote{Website: http://xmipp.cnb.csic.es} is a software for cryo-electron microscopy (cryo-EM). It contains several tools used for processing
+different steps of cryo-EM image reconstruction pipeline. The pipeline has several computational bottlenecks, one of them being 3D Fourier reconstruction
+\cite{cryoem-source}. The 3D Fourier reconstruction builds a 3D volume in a Fourier space from a set of Fourier transforms of specimen's 2D projections.
+Essentially, the reconstruction algorithm inserts 2D images with different rotations into a 3D grid using an interpolation kernel.
+
+The CUDA-based GPU acceleration of 3D Fourier reconstruction has been introduced in \cite{cryoem-example}. The algorithm uses a gather memory access
+pattern, which parallelizes the computation over a 3D domain, so there are no race conditions in updating voxel data. In contrast to previously used
+scatter pattern, the gather-based implementation is faster but relatively complex, exposing several tuning parameters which are listed in Table
+\ref{fourier_tuning_parameters}.
+
+\begin{table}
+\begin{center}
+    \begin{tabular}{|l|p{2cm}|p{7cm}|}
+    \hline
+    Parameter & Values & Description \\
+    \hline
+    BLOCK\_DIM & 8, 12, 16, 20, 24, 28, 32 & dimensions of a thread block \\
+    ATOMICS & 0, 1 & allows (1) or prohibits (0) usage of atomic updates for accessing 3D volume \\
+    GRID\_DIM\_Z & 1, 4, 8, 16 & number of samples processed in parallel, must be 1 if ATOMICS=0 \\
+    PRECOMP\_INT & 0, 1 & use on-the-fly computation (0) or precomputation (1) of interpolation weights \\
+    SHARED\_INT & 0, 1 & cache precomputed interpolation weight in shared memory (1) or read it directly from global memory (0), set only when PRECOMP\_INT=1 \\
+    SHARED\_IMG & 0, 1 & cache input sample in shared memory (1) or read it directly from global memory (0), may be 1 only if SHARED\_INT=0 due to limited shared memory capacity in current GPUs \\
+    TILE\_SIZE & 1, 2, 4, 8 & size of a tile formed from threads, TILE\textgreater 1 is allowed only when SHARED\_IMG=0, it must divide BLOCK\_DIM \\
+    \hline
+    \end{tabular}
+\end{center}
+\caption{Tuning parameters used in 3D Fourier reconstruction, taken from \cite{cryoem-example}.}
+\label{fourier_tuning_parameters}
+\end{table}
+
+Originally, KTT 0.5 has been integrated into 3D Fourier reconstruction for offline tuning and values of tuning parameters for various hardware have
+been manually exported into the code. The tuning results showed poor performance portability across GPUs, even within the same generation (the worst
+performance portability has been measured between Maxwell generation GeForce GTX750 and Pascal generation Tesla P100 -- the code tuned for P100 and
+executed on GTX750 performed at 31\% of the fastest GTX750 implementation). Moreover, the size of samples inserted into 3D domain influences selection
+of optimal tuning parameters. The tuning has to be repeated for samples of different size, otherwise suboptimal performance is obtained, as can be seen in
+Table \ref{fourier_portability}.
+
+The disadvantage of offline tuning in this scenario is that it is impractical for all combinations of hardware and input sizes. Furthermore, it is also
+possible to configure interpolation window size, which has an influence on the optimal selection of tuning parameter values. These problems can be solved
+by introducing online tuning.
+
+\begin{table}
+\begin{center}
+    \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    Tesla P100 & 256x256 & 128x128 & 64x64 & 50x50 \\
+    \hline
+    256x256 & 100\% & 100\% & 50\% & 32\% \\
+    128x128 & 100\% & 100\% & 50\% & 32\% \\
+    64x64 & 64\% & 82\% & 100\% & 90\% \\
+    50x50 & 56\% & 67\% & 91\% & 100\% \\
+    \hline
+    \end{tabular}
+\end{center}
+\caption{Performance portability on Tesla P100, where code is tuned for (rows) / executed (columns) with different image sizes.}
+\label{fourier_portability}
+\end{table}
+
+\subsection{Online tuning implementation}
+When utilizing online tuning, implementation of the kernel can be changed during program execution. In order to support it, all CUDA code which directly
+accesses a GPU has to be removed from 3D Fourier reconstruction code and replaced with calls to KTT framework. A pseudocode of the reconstruction is shown
+in Algorithm \ref{fourier_algorithm}. The output volumes $G$ (Fourier transform of the volume) and $W$ (weights for 3D voxels) are initialized at the
+beginning of the computation. In loop at line \ref{fourier_algorithm_loop}, the samples are added into 3D volume. More precisely, the samples are packed
+into buffers of predefined size, their Fourier transform is computed on a CPU, copied into GPU memory and then GPU kernel is executed to insert the
+samples into volumes $G, W$. During offline tuning, only one buffer has to be prepared and used with altering kernel implementations in order to find the
+fastest one.
+
+Online tuning has to perform both tuning and computation at the same time. Therefore, all input and output data have to be managed by KTT during the whole program
+execution. In the loop in line \ref{fourier_algorithm_loop}, the data are prepared on CPU, then a KTT method which launches online tuning is executed. The
+method selects a new combination of tuning parameters and executes a tuning manipulator. The manipulator first copies buffer $s_f$ into GPU memory and then
+executes a kernel, which inserts samples from $s_f$ into volumes $G, W$. The kernel execution is asynchronous, so CPU may compute FFT of another buffer while
+kernel is still running. The manipulator may execute kernel iteratively or just once, depending on whether atomic operations are switched off or on with
+a tuning parameter.
+
+\begin{algorithm}
+    \small
+    \caption{3D reconstruction}
+    \label{fourier_algorithm}
+    \begin{algorithmic}[1]
+        \State initialize output volumes $G, W$ in GPU memory to zero
+        \State initialize buffer of sample's Fourier Transform $s_f$ in GPU memory
+        \ForAll{$s \in S$} \label{fourier_algorithm_loop}
+        \State $s_f \leftarrow FFT(s)$ on CPU
+        \State upload $s_f$ to GPU
+        \State insert trans. samples from $s_f$ into $G, W$
+        \EndFor
+        \State download $G, W$ to CPU memory
+        \State apply weights $W$ to $G$ and perform inverse transform of $G$
+    \end{algorithmic}
+\end{algorithm}
+
+\subsection{Evaluation}
+In order to evaluate online auto-tuning with 3D Fourier reconstruction, two experiments were designed:
+\begin{itemize}
+    \item tuner overhead measurement
+    \item amortized performance measurement
+\end{itemize}
+The first experiment measures an overhead added by the tuner. The space of tuning parameters was modified to contain only one configuration. In such case,
+KTT performs a single kernel compilation, concludes the tuning and then just executes the computation. The timing of such computation is compared against
+the original implementation which accessed CUDA API directly. If there was any significant overhead created by the tuner (e.g., an overhead in some tuning
+method or a limitation of KTT design, requiring to use a GPU in less efficient way), the timing of online-tuned implementation would be significantly worse.
+Otherwise, the version with online tuning would perform similarly to the original version.
+
+The second experiment evaluates the benefit of online tuning. The experiment consists of three steps:
+\begin{itemize}
+    \item execution of code which is tuned offline for different hardware and samples resolution (so it will be suboptimal with current setup)
+    \item execution of code which is tuned offline for utilized hardware and samples resolution
+    \item execution of code with online tuning which is not tuned for any specific hardware or samples resolution
+\end{itemize}
+This experiment highly depends on a given computation problem, selection of tuning parameters and optimization method. However, a convergence of performances
+of online and offline tuned code should still be seen after sufficient amount of time, once tuning overhead (kernel compilation, execution of suboptimal
+kernels) is amortized.
 
 \FloatBarrier
 
