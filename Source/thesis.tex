@@ -206,12 +206,12 @@ synchronization and retrieval of results. OpenCL API defines several important s
     platform, they are used for executing kernels.
     \item \textit{cl\_context} -- Serves as a holder of resources, similar in functionality to an operating system process. Majority of other OpenCL
     structures have to be tied to a specific context. Context is created for one or more OpenCL devices.
-    \item \textit{cl\_command\_queue} -- All commands which are executed directly on an OpenCL device have to be submitted inside a command queue. It
+    \item \textit{cl\_command\_queue} -- All commands which are executed directly on an OpenCL device have to be submitted to a command queue. It
     is possible to initialize multiple command queues within a single context in order to overlap independent operations.
     \item \textit{cl\_mem} -- Data which is directly accessed by a kernel has to be bound to an OpenCL buffer, which is referenced by a cl\_mem variable.
     This includes both scalar and vector arguments. It is possible to specify buffer memory location (device or host memory) and access type (read-only,
     read-write, write-only).
-    \item \textit{cl\_program} -- A variable which references an OpenCL device program compiled from OpenCL C source file. Program can be shared by
+    \item \textit{cl\_program} -- A variable which references an OpenCL device program compiled from an OpenCL C source file. Program can be shared by
     multiple kernel objects.
     \item \textit{cl\_kernel} -- An object used to reference a specific kernel. Holds information about OpenCL program, kernel function name (single
     program can contain definitions of multiple kernel functions) and buffers which are utilized by a kernel.
@@ -239,7 +239,7 @@ within a work-group.
 
 Individual work-groups are organized into \textit{NDRange} (N-Dimensional Range). At NDRange level, it is possible to address two types of memory --
 \textit{global memory} and \textit{constant memory}. Global memory (e.g., CPU main memory, GPU global memory) is usually very large but has high
-latency. On the other hand, constant memory generally has small capacity but lower latency. It can be utilized to store read-only data. Certain devices
+latency. On the other hand, constant memory generally has a small capacity but lower latency. It can be utilized to store read-only data. Certain devices
 such as CPUs do not have hardware support for constant memory and usually store variables marked with constant memory keyword in global memory.
 Organization and indexing of work-groups inside an NDRange works in the same way as for work-items within a work-group. The entire hierarchy is
 illustrated in Figure \ref{opencl-hierarchy}.
@@ -253,7 +253,7 @@ illustrated in Figure \ref{opencl-hierarchy}.
 \end{figure}
 
 Hierarchical organization into NDRange, work-groups and work-items allows for more flexible mapping of computation tasks onto heterogeneous hardware
-devices, which can have different architectures. Furthermore, it may also make it easier to map tasks onto OpenCL kernels. Complete tasks are defined
+devices, which can have different architectures. Furthermore, it may also make it easier to map tasks onto OpenCL kernels. Whole tasks are defined
 at the NDRange level, work-groups represent large computation chunks which are executed in arbitrary order. The smallest operations (e.g., addition of
 two numbers) are mapped onto work-items.
 
@@ -344,8 +344,8 @@ fit into it, on other devices it would be necessary to use global memory instead
 memory would be inefficient for large number of devices. This can be solved by using tuning parameter which controls the data memory placement.
 
 \subsection{Data layout in memory}
-Composite data can be organized into memory in multiple ways. For example, data about 3D vertex coordinates can be split into three separate arrays
-which are then stored in memory consecutively. Another way to organize the same data is to first put all information about vertex into a structure and
+Composite data can be organized into memory in multiple ways. For example, data storing 3D vertex coordinates can be split into three separate arrays
+which are then stored in memory consecutively. Another way to organize the same data is to first put all information about a vertex into a structure and
 then create an array of these structures. The former layout is commonly referred to as structure of arrays (SoA), while the latter is called array
 of structures (AoS). The difference is illustrated with Figure \ref{aos_soa}.
 
@@ -383,7 +383,7 @@ The following terms are commonly encountered in subsequent chapters and their kn
 \begin{itemize}
     \item \textit{tuning parameter} -- Parameter which, depending on its value, affects performance of a computation. For example, a parameter which
     controls length of a vector type of some variable. The exact way parameter comes into effect depends on a specific framework. Common option is
-    utilization of just-in-time compilation and preprocessor macros.
+    a utilization of just-in-time compilation and preprocessor macros.
     \item \textit{configuration space} -- Space which is created as a Cartesian product of all tuning parameters and their values. Certain elements of
     configuration space may be eliminated by utilizing constraints.
     \item \textit{tuning configuration} -- Single element of configuration space.
@@ -412,21 +412,21 @@ commonly implemented by existing frameworks or desired by users. They include th
     \item Integration into existing software -- Framework should not significantly restrict usage of features which are available in compute APIs.
     Ideally, users should be able to port native applications into framework without losing access to some of the corresponding compute API functionality.
     \item User-friendliness and ease of use -- Availability of documentation, tutorials, clean and stable API. Availability of utility methods such
-    as printing of tuning results in common format, logging of debug information and others.
+    as printing of tuning results in common format, debugging support and others.
 \end{itemize}
 
 \section{CLTune}
-CLTune \cite{cltune} is a framework for auto-tuning of OpenCL and CUDA kernels. It is freely available in form of a library and provides C++ interface
+CLTune \cite{cltune} is a framework for auto-tuning of OpenCL and CUDA kernels. It is freely available in a form of library and provides C++ interface
 for writing host programs. It is relatively easy to use and provides capabilities for tuning of separate kernels, multiple configuration search
-strategies including several optimization-based approaches and result validation in a form of reference kernels.
+strategies, including several optimization-based approaches and result validation in a form of reference kernels.
 
 However, it also has several limitations. Among the most significant ones are lack of support for kernel compositions, limited argument handling
 options (all kernels must accept the same kernel arguments, argument placement in memory is impossible to control) and poor support for integration into
 existing software (code which launches kernels is internal part of the framework and cannot be modified). This results in a need to write separate
 applications for tuning and computation. The framework is no longer actively developed, so it is unlikely that new features will be introduced.
 
-Basic tuner configuration in CLTune consists of several main steps, which are listed below. KTT functionality, in its simplest form, is based on the
-same idea. Figure \ref{cltune-example} contains part of a program written in CLTune, which includes all of the following steps:
+Tuner configuration in CLTune consists of several main steps which are listed below. KTT functionality in its basic form is based on the same idea.
+Figure \ref{cltune-example} contains part of a program written in CLTune, which includes all of the following steps:
 \begin{enumerate}
     \item Initialization of tuner by specifying target platform and device.
     \item Addition of tuned kernel.
@@ -490,7 +490,7 @@ As in case of CLTune, disadvantages include lack of support for kernel compositi
 Kernel Tuner is still actively developed and some of these shortcomings may be eventually amended.
 
 Host program has to be written in similar fashion to CLTune, definitions of tuning parameters are exported in the same way. Figure \ref{kerneltuner-example}
-contains major portion of host program written for Kernel Tuner.
+contains major portion of a host program written in Kernel Tuner.
 \begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
@@ -579,9 +579,9 @@ more efficiently by utilizing multi-threading and pre-filtering of parameter val
 situations where many tuning parameters with a large number of valid values are used.
 
 ATF also supports various abort conditions to end exploration of search space during offline tuning. These include conditions based on absolute tuning
-time, number of explored configurations and relative speedup within the last tested configurations. However, several shortcomings which were present
-in previous frameworks also remain in ATF. There is no support for online tuning and no explicit support for kernel compositions. The framework currently
-also lacks documentation and provides only a handful of usage examples. Another inconvenience is the necessity to ask for usage permission.
+time, number of explored configurations and relative speedup within several recently tested configurations. However, several shortcomings which were
+present in previous frameworks also remain in ATF. There is no support for online tuning and no explicit support for kernel compositions. The framework
+currently also lacks documentation and provides only a handful of usage examples. Another inconvenience is the necessity to ask for usage permission.
 
 Example of tuning OpenCL SAXPY (single-precision a * x + y) kernel with ATF framework can be seen in Figure \ref{atf-example}.
 
@@ -666,7 +666,7 @@ large portion of code.
 
 It was eventually decided to write a completely new framework named Kernel Tuning Toolkit. Baseline portion of KTT API remained similar to CLTune,
 so it would be easy to port existing programs. However, the internal structure was completely rewritten from scratch, with only very small portions
-of CLTune code for following features being reused:
+of CLTune code for the following features being reused:
 \begin{itemize}
     \item generating of tuning configurations
     \item definition of tuning parameter constraints
@@ -735,12 +735,12 @@ minimal so that the speedup gained by utilizing online tuning is more significan
 KTT framework API provides users with methods which can be used to develop and tune OpenCL or CUDA applications. It is split into three major
 classes, some basic methods were inspired by CLTune. It is written in C++ language.
 
-KTT framework can be acquired from GitHub\footnote{Repository link: https://github.com/Fillo7/KTT} as a fully open-source library with prebuilt
+KTT framework can be acquired from GitHub\footnote{Repository link: https://github.com/Fillo7/KTT} as an open-source library with prebuilt
 binaries being available for certain platforms. Manual library compilation is also possible by using a build tool premake5, C++14 compiler and CUDA
 or OpenCL distribution. Supported operating systems include Linux and Windows.
 
-The described API corresponds to version 0.6 of KTT framework. It is the first release candidate version and contains all functionality that was
-planned to be implemented as part of this thesis.
+The described API corresponds to version 0.6 of KTT framework. It is the first release candidate version and contains all of the functionality that
+was planned to be implemented as a part of this thesis.
 
 \section{Tuner class}
 Tuner class makes up the main part of KTT API. It includes methods which implement following functionality:
@@ -760,7 +760,7 @@ In order to access the API methods, tuner object has to be created. There are cu
 queues. OpenCL API with one compute queue is the default setting. Indices are assigned to platforms and devices by KTT framework, they can be retrieved
 with a tuner method.
 
-\begin{figure}
+\begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 Tuner(const PlatformIndex platform, const DeviceIndex device)
@@ -773,7 +773,7 @@ Tuner(const PlatformIndex platform, const DeviceIndex device, const ComputeAPI A
 \end{figure}
 
 \subsection{Kernel handling}
-Kernels can be added to a tuner from a file or C++ string (Figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
+Kernels can be added to tuner from a file or a C++ string (Figure \ref{ktt-kernel-methods}). Users furthermore need to specify kernel function name and
 default global and local sizes (i.e., dimensions for NDRange / grid and work-group / thread block). The sizes are stored inside \textit{DimensionVector}
 objects, which are a part of KTT framework. They allow easy thread size manipulation and support up to three dimensions. Existing kernels can be referenced
 by using a handle returned by tuner. Kernel compositions can be added by specifying handles of kernels which should be included inside a composition. In order
@@ -793,13 +793,13 @@ KernelId addComposition(const std::string& compositionName, const std::vector<Ke
 
 \subsection{Kernel argument handling}
 There are three types of kernel arguments supported by KTT -- vector, scalar and local memory (OpenCL) arguments. All arguments are referenced by using
-a handle provided by a tuner. Argument addition methods are templated and support primitive data types (e.g., int, float) as well as user-defined data
+a handle provided by tuner. Argument addition methods are templated and support primitive data types (e.g., int, float) as well as user-defined data
 types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts kernel handle and corresponding argument handles. This allows
 them to be shared among multiple kernels. The mentioned methods can be seen in Figure \ref{ktt-argument-methods}.
 
 Vector arguments are added from C++ vector containers. It is possible to specify access type (read, write or combined), memory location from where
 argument data is accessed by kernel (device or host) and whether argument copy should be made by the tuner. By default, copies of all vector arguments
-are made by tuner, so the original vectors remain modifiable by user without interfering with tuning process. In case argument is placed in host
+are made by tuner, so the original vectors remain modifiable by a user without interfering with the tuning process. In case argument is placed in host
 memory, it is possible to utilize zero-copy feature, which means that kernel has direct access to buffer which was initialized from host code. This
 functionality is supported by both CUDA and OpenCL. All of the vector argument handling options are illustrated with Figure \ref{ktt-buffer-diagram}.
 
@@ -864,7 +864,7 @@ argument data remains the same for all configurations, the reference output need
 
 In online tuning, single configuration is tested at time, enabling combination with kernel running. It also allows kernel output retrieval using
 KTT built-in structure \textit{OutputDescriptor}. This structure specifies handle of argument to be retrieved, memory location for output data and
-optionally size of the retrieved data, which is useful in case only part of the argument is needed. Online tuning also enables swapping of argument
+optionally size of the retrieved data, which is useful in case only part of the argument is needed. Online tuning also supports swapping of argument
 data between each configuration, though if validation is enabled, reference output needs to be recomputed every time a new configuration is run.
 It is important to note that the input size should remain the same across all tested configurations during tuning so that the measured durations
 can be objectively compared. The optimal configurations are not necessarily identical for different input sizes either.
@@ -876,7 +876,7 @@ to 0.5 will result in 50\% of all configurations being tested). In random search
 methods employ probabilistic techniques in order to find configurations with good performance more quickly.
 
 Output retrieval is supported for kernel running in the same fashion as for online tuning. Kernels can be run in any valid tuning configuration which is
-specified by user. Output validation is not performed during kernel running. Kernels can be run using the best found configuration immediately after the
+specified by a user. Output validation is not performed during kernel running. Kernels can be run using the best found configuration immediately after the
 tuning has finished which means that splitting auto-tuning and production applications is not necessary.
 
 In basic case, launch of a kernel is handled automatically by a tuner after the initial setup. However, for scenarios where part of a computation
@@ -933,12 +933,12 @@ void setArgumentComparator(const ArgumentId id, const std::function<bool(const v
 \end{figure}
 
 \subsection{Tuning results retrieval}
-Each tuning result includes a list of parameter values, global and local thread sizes and corresponding duration of computation. List of all tuning
+Each tuning result includes a list of parameter values, global and local sizes and corresponding duration of computation. List of all tuning
 results for specified kernel can be printed either to a C++ output stream or a file. Supported print formats include verbose format intended for log
 files or terminals and CSV (comma-separated values) format which is useful for subsequent processing and analysis of results.
 
 List of parameter values for the best known configuration can also be retrieved through an API method, which is useful for combining online
-auto-tuning with kernel running. The available methods can be seen in figure \ref{ktt-result-methods}.
+auto-tuning with kernel running. The available methods can be seen in Figure \ref{ktt-result-methods}.
 
 \begin{figure}
 \begin{adjustwidth}{-1cm}{-1cm}
@@ -958,7 +958,7 @@ proper tuner initialization. The assigned indices and corresponding platform and
 furthermore possible to retrieve more detailed information about individual platforms and devices, such as list of supported extensions, memory
 capacities, number of compute units and others (Figure \ref{ktt-information-methods}).
 
-\begin{figure}
+\begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 void printComputeAPIInfo(std::ostream& outputTarget)
@@ -980,7 +980,7 @@ Choice of a global size notation allows using OpenCL NDRange dimension specifica
 the notable differences between OpenCL and CUDA API in host code and makes it easier to port programs written in one API to the other.
 
 Automatic global size correction ensures that global size is always a multiple of local size, which is a necessary requirement for running kernels
-in OpenCL, and also in CUDA if OpenCL global size notation option is used. Framework performs automatic roundup of a global size to the nearest higher
+in OpenCL, and also in CUDA, if OpenCL global size notation option is used. Framework performs automatic roundup of a global size to the nearest higher
 multiple of a local size. Enabling this behaviour is useful when multiple tuning parameters which affect thread sizes are present.
 
 \begin{figure}
@@ -998,8 +998,8 @@ void setAutomaticGlobalSizeCorrection(const bool flag)
 \subsection{Error handling}
 There are two basic types of errors that are handled by KTT framework -- errors caused by incorrect API usage (e.g., using invalid kernel or argument
 handle) and kernel execution errors (e.g., a kernel under specific configuration cannot be launched due to insufficient amount of device resources or
-computes incorrect results). In the first case, the framework prints a message describing cause of error and then throws an exception, aborting the entire
-tuning process. The error then has to be corrected by a user.
+computes incorrect result). In the first case, the framework prints a message describing cause of error and then throws an exception, aborting the entire
+tuning process. The error has to be then corrected by a user.
 
 In the second case, it is undesirable that a single faulty kernel would cause the entire tuning process to be terminated. When a kernel error is
 encountered, a message describing the cause is printed, but the tuning process then continues with next configuration. This works well during offline
@@ -1018,10 +1018,10 @@ The first method should implement computation of a reference output. The second 
 method can be overriden if the resulting output size is smaller than the size of corresponding validated kernel argument. This is useful in situations
 where only a part of the argument is validated.
 
-Implemented class can be then assigned to a tuner by using a method from tuner API described in Section \ref{ktt-validation}. The implemented
-methods are utilized by a tuner during output validation phase.
+Implemented class can be then assigned to tuner by using a method from tuner API described in Section \ref{ktt-validation}. The implemented
+methods are utilized by tuner during output validation phase.
 
-\begin{figure}
+\begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 virtual void computeResult() = 0
@@ -1043,7 +1043,6 @@ Tuning manipulator is an interface for customizing the way kernels are launched 
     \item Kernel compositions are utilized.
     \item Framework is integrated into another software which needs to perform additional operations between individual kernel launches.
 \end{itemize}
-
 Because in all of the above-mentioned scenarios, the exact way kernel is launched depends on a specific use case, it is up to user to define their own
 tuning manipulator. The definition works in a similar way as for reference class -- a new class inheriting from \textit{TuningManipulator} interface
 has to be created and a virtual method which launches a kernel and performs any user-defined operations needs to be implemented.
@@ -1056,8 +1055,8 @@ host code easier.
 The basic task which needs to be fulfilled by the implemented method is to run a kernel with corresponding tuning configuration. If the implemented
 method executes only this one task, then the resulting behaviour is the same as if no tuning manipulator was used at all.
 
-Kernel in tuning manipulator can be run either with global and local thread sizes corresponding to current configuration or with user-specified sizes.
-Second option can be used in addition or as an alternative to thread size modifying parameters described in Section \ref{ktt-tuning-parameters}.
+Kernel inside a tuning manipulator can be run either with global and local sizes that correspond to current configuration or with user-specified sizes.
+The second option can be used in addition to or as an alternative to thread size modifying parameters described in Section \ref{ktt-tuning-parameters}.
 Methods for thread size and parameter value retrieval are available as well. Those can be used to implement tuning parameters which affect host code.
 The list of all tuning manipulator methods related to kernel running can be seen in Figure \ref{ktt-manipulator-kernel-methods}.
 
@@ -1076,7 +1075,7 @@ std::vector<ParameterPair> getCurrentConfiguration()
 \end{figure}
 
 \subsection{Kernel argument and buffer management}
-When a kernel is run iteratively to produce a complete result, it is often desirable to modify the input data between iterations. Tuning manipulator
+When a kernel is run iteratively to produce a complete result, it is often desirable to modify input data between iterations. Tuning manipulator
 interface provides methods for this scenario. It is possible to modify both scalar and vector arguments. It is also possible to retrieve data of
 vector arguments, which is useful, for example when the data has to be preprocessed on a CPU in-between iterative kernel launches (Figure
 \ref{ktt-manipulator-buffer-methods}).
@@ -1085,7 +1084,7 @@ All of the modifications performed on kernel arguments and corresponding buffers
 it possible to utilize manipulators in offline tuning, where the initial state of kernel arguments before testing of each tuning configuration needs to
 remain the same.
 
-\begin{figure}
+\begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 void updateArgumentScalar(const ArgumentId id, const void* argumentData)
@@ -1101,8 +1100,8 @@ void changeKernelArguments(const KernelId id, const std::vector<ArgumentId>& arg
 
 \subsection{Compute queues and asynchronous operations}
 In real-world computations, multiple compute queues are often utilized in order to overlap independent parts of a computation and thus increase
-performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in a specified queue and device synchronization.
-Number of queues which are available corresponds to user-specified amount during tuner initialization. Queues are referenced with handles provided by KTT.
+performance. For this purpose, manipulator interface includes methods for executing asynchronous operations in a specified queue and for device synchronization.
+Number of queues which are available corresponds to a user-specified amount during tuner initialization. Queues are referenced with handles provided by KTT.
 Methods which can be run asynchronously include kernel running and operations with vector kernel arguments. It is possible to synchronize either only
 specified queue or all queues which effectively synchronizes the entire device (Figure \ref{ktt-manipulator-asynchronous-methods}).
 
@@ -1130,13 +1129,13 @@ Output validation is done via reference class interface which is defined in the 
 the data that is needed to compute reference result. Method which computes the result (lines 11-17) performs a simple addition of elements inside
 two vector containers in a for loop. The final method (lines 19-26) is called internally by KTT framework to retrieve computed reference result.
 Since KTT validation component works directly with computed data, the method needs to return pointer to a buffer which contains this data rather than
-pointer to the entire vector container. Because it is possible to validate multiple arguments with single reference class, this function also checks
+pointer to the entire vector container. Because it is possible to validate multiple arguments with single reference class, this method also checks
 for which argument the reference result should be returned.
 
 Second figure then shows the main part of a host program. Kernel in this example is tuned using a single tuning parameter which controls size of a
 work-group -- four possible parameter values are specified. Lines 5-16 contain initialization of data, global and local sizes. NDRange size is
-initialized to total number of elements inside vector so that each element is processed by a single work-item. For simplicity's sake, it is assumed that
-number of elements is a multiple of 32. Work-group size is initialized to one because it will be controlled with tuning parameter which is added later.
+initialized to a total number of elements inside vector so that each element is processed by a single work-item. For simplicity's sake, it is assumed that
+number of elements is a multiple of 32. Work-group size is initialized to one because it will be controlled with tuning parameter, which is added later.
 Tuner is initialized (line 18) by specifying platform and device index, followed by addition of tuned kernel and its arguments (lines 19-24). The next
 line includes instantiation of previously defined reference class and its addition to tuner. Line 28 contains definition of a tuning parameter which
 multiplies work-group size in dimension x. Since the default size was defined as 1, this effectively sets the resulting size to the parameter's value.
@@ -1232,9 +1231,9 @@ int main(int argc, char** argv)
 \chapter{KTT structure}
 \label{ktt-structure}
 KTT structure is loosely based on layered architecture pattern \cite{software-architectures}, which is often employed for developing enterprise
-applications. Individual functionality is split into multiple components across several layers. On lower layers, each component is independent and
+applications. Individual functionality is split into multiple components across several layers. On the lowest layer, each component is independent and
 focuses on a single task (e.g., managing of kernels), which makes it easier to extend existing functionality and introduce new features. Functionality
-of individual components is interconnected on higher layers with the topmost layer serving as public API. Figure \ref{ktt-class-diagram} contains
+of individual components is interconnected on upper layers with the topmost layer serving as a public API. Figure \ref{ktt-class-diagram} contains
 high-level class diagram of KTT framework, which includes all of the major components and dependencies between them. Some smaller components and utility
 classes such as result printer are not included in order to improve readability.
 
@@ -1265,7 +1264,7 @@ Functionality of the following components is further described in this chapter:
 \clearpage
 
 \section{Tuner and tuner core}
-Tuner component represents the main part of public API. Its methods were described in chapter \ref{ktt-api}. In order to hide internal framework
+Tuner component represents the main part of public API. Its methods were described in Chapter \ref{ktt-api}. In order to hide internal framework
 components from users, it utilizes pointer to implementation idiom. The public header (.h) file contains only declaration of implementation class
 (i.e., tuner core) and a pointer to its instance. However, the actual tuner core header with method definitions is directly included only in tuner
 implementation (.cpp) file. This file is needed during compilation, but the built library can be then distributed with tuner header only. There is
@@ -1285,8 +1284,8 @@ Configurations are generated recursively with parameters being processed one by 
 launches a new instance of the same method for each parameter value. The new instances then repeat the process for subsequent parameters until the
 resulting configuration contains definitions of all parameters. When a configuration is complete, it is checked whether it satisfies all user-defined
 constraints. Configurations which pass the check are then placed inside a shared vector container which is visible from all instances of recursively
-called methods, invalid configurations are discarded. Kernel configurations also include global and local kernel thread sizes, which are updated when
-a thread-modifying tuning parameter is processed. With multiple such parameters, the modification happens in the order of their addition.
+called methods, invalid configurations are discarded. Kernel configurations also include global and local sizes, which are updated when a thread-modifying
+tuning parameter is processed. With multiple such parameters, the modification happens in the order of their addition.
 
 Kernel compositions are components which contain references to all kernels that they include. Addition of tuning parameters works in a similar fashion
 as for regular kernels, difference being that when a parameter is added to a composition, its definition is added to source codes of all utilized kernels.
@@ -1295,8 +1294,8 @@ parameters which only affect thread sizes of a specific kernel inside a composit
 
 \section{Argument manager}
 Argument manager stores and generates unique handles for kernel arguments. Arguments inside KTT can store elements with user-defined data types as well as
-built-in data types. This is handled by storing the argument elements as raw data and converting to proper data type only when needed (e.g., during result
-validation). Restriction is that the used data type has to be trivially copyable\footnote{Trivially copyable data type cannot have user-defined
+built-in data types. This is made possible by storing the argument elements as raw data and converting to proper data type only when needed (e.g., during
+result validation). Restriction is that the used data type has to be trivially copyable\footnote{Trivially copyable data type cannot have user-defined
 copy / move constructors, destructor or assignment operators and cannot contain virtual methods, which effectively makes it safe to copy with low-level
 functions such as std::memcpy.}. However, this is not much of a problem because data which is copied into e.g., GPU memory should be trivially copyable
 either way.
@@ -1311,15 +1310,15 @@ using different configurations. The loop consists of the following steps:
     a subcomponent of configuration manager.
     \item Tuning runner launches a computation using previously retrieved configuration.
     \item When computation is finished, the output is compared with previously generated reference output.
-    \item Computation duration is reported back to configuration manager, the duration can be utilized by searcher to optimize exploration of
+    \item Computation duration is reported back to configuration manager, the duration can be utilized by a searcher to optimize exploration of
     configuration space. Durations for failed computations or invalid results are reported as infinity.
 \end{enumerate}
 Once the loop has finished, tuning runner performs cleanup and the tuning results are stored for later retrieval.
 
-Online tuning contains similar steps as offline tuning, except that it performs only single iteration of previously described loop per online tuning
+Online tuning contains similar steps as offline tuning, except that it performs only single iteration of the previously described loop per online tuning
 method invocation. The other important difference is that if result validation is enabled, the reference output has to be recomputed for each
 configuration as the output between launches of individual configurations may change. Since online tuning method can be launched more times than the
-total number of available configurations, tuner always launches computation with the best found configuration after completing the exploration of
+total number of available configurations, tuner always launches computation with the best found configuration after completing the traversal of
 configuration space.
 
 \section{Compute engine}
@@ -1342,7 +1341,7 @@ Motivation for developing tuning manipulator API was to allow users to have grea
 For example, certain computations require running the same kernel multiple times in a loop, computing portion of the result directly in C++ code or
 utilizing multiple kernels. The main KTT API alone does not allow for such functionality because it provides only high-level kernel running methods which
 are easier to use but only support simpler use cases. In order to handle the complex scenarios, users need to have access to more fine-grained
-functionality, similar to what is offered by compute engine.
+functionality, similar to what is offered by a previously described compute engine component.
 
 However, exposing compute engine methods to public API directly would be problematic for two reasons. Firstly, as KTT framework is further developed,
 declarations of compute engine methods often change in order to support new functionality. This would force users to frequently update their code
@@ -1351,9 +1350,9 @@ of single computation (e.g., uploading kernel arguments into buffers followed by
 along with the high-level methods would cause confusion.
 
 Because of these reasons, tuning manipulator and the related component called manipulator interface were developed. Users can define a class which
-inherits from tuning manipulator and consequently gain access to its methods which provide functionality similar to compute engine. Tuning manipulator
-contains a private pointer to manipulator interface and internally calls its methods. Implementing class for the manipulator interface is a part of
-kernel runner and has direct access to compute engine. When a kernel or a composition utilizing tuning manipulator is run, kernel runner sets the
+inherits from tuning manipulator and consequently gain access to its methods, which provide functionality similar to compute engine. Tuning manipulator
+contains a private pointer to manipulator interface and internally calls its methods. Implementing class for the manipulator interface is
+a part of kernel runner and has direct access to compute engine. When a kernel or a composition utilizing tuning manipulator is run, kernel runner sets the
 manipulator interface pointer inside tuning manipulator to the implementing class and computation may then normally proceed. This way users have access
 to functionality of internal framework components without a need to directly expose these components to public API. 
 
@@ -1378,7 +1377,7 @@ fashion as a reference class (line 34). The manipulator in this example modifies
 The remaining code section (lines 36-37) contains start of a tuning process and printing of results.
 
 Tuning parameters are defined in Figure \ref{reduction-example-parameters} (lines 5-9). The first parameter controls size of a work-group, same as in
-simple example in section \ref{ktt-simple-usage}. The next two parameters are used to control number of work-groups. Parameter "UNBOUNDED\_WG" controls
+the simple example from Section \ref{ktt-simple-usage}. The next two parameters are used to control number of work-groups. Parameter "UNBOUNDED\_WG" controls
 whether number of work-groups scales based on input size. If the scaling is disabled, then their number is controlled with parameter "WG\_NUM" whose
 values are set to a multiple of available compute units. The number of compute units and several other device parameters can be retrieved through KTT API
 (lines 2-3). Parameter "VECTOR\_SIZE" controls which vector data type is used for input buffer. This parameter also divides the global size because
@@ -1544,9 +1543,9 @@ for user to decide exactly which kernels are affected by individual parameters i
 and "GLOBAL\_SIZE" parameters that is unsupported by implemented kernels. It is eliminated with a definition of constraint (line 24). The figure ends with
 an addition of reference class that performs the sorting on a CPU, launch of a tuning and printing of results (lines 26-28).
 
-The second figure contains a computation launch method inside manipulator. The method first retrieves configuration and sets the kernel dimensions
+Figure \ref{sort-example-manipulator} contains a computation launch method inside manipulator. The method first retrieves configuration and sets the kernel dimensions
 accordingly (lines 2-7). Afterwards, several arguments are updated based on the previously set dimensions (lines 9-16). Currently there is a limitation
-for updating vector arguments -- it is not possible to simply resize the argument without also providing a new data. It is solved by creating an artificial
+for updating vector arguments -- it is not possible to simply resize the argument without also providing a new data. Here it is solved by creating an artificial
 buffer with size corresponding to new argument size (lines 15-16). In this case, it does not have a significant negative impact on performance, but vector
 argument resize method is planned to be added to manipulator API nonetheless. Result is then computed in iterations with three composition kernels being
 launched with previously set kernel dimensions (lines 28-30). The work in second kernel is done by a single work-group. Additionally, the first and third
@@ -1708,13 +1707,13 @@ by introducing online tuning.
 When utilizing online tuning, implementation of the kernel can be changed during program execution. In order to support it, all CUDA code which directly
 accesses a GPU has to be removed from 3D Fourier reconstruction code and replaced with calls to KTT framework. A pseudocode of the reconstruction is shown
 in Algorithm \ref{fourier_algorithm}. The output volumes $G$ (Fourier transform of the volume) and $W$ (weights for 3D voxels) are initialized at the
-beginning of the computation. In loop at line \ref{fourier_algorithm_loop}, the samples are added into 3D volume. More precisely, the samples are packed
+beginning of the computation. In loop at line 3, the samples are added into 3D volume. More precisely, the samples are packed
 into buffers of predefined size, their Fourier transform is computed on a CPU, copied into GPU memory and then GPU kernel is executed to insert the
 samples into volumes $G, W$. During offline tuning, only one buffer has to be prepared and used with altering kernel implementations in order to find the
 fastest one.
 
 Online tuning has to perform both tuning and computation at the same time. Therefore, all input and output data have to be managed by KTT during the whole program
-execution. In the loop in line \ref{fourier_algorithm_loop}, the data are prepared on CPU, then a KTT method which launches online tuning is executed. The
+execution. In the loop in line 3, the data are prepared on CPU, then a KTT method which launches online tuning is executed. The
 method selects a new combination of tuning parameters and executes a tuning manipulator. The manipulator first copies buffer $s_f$ into GPU memory and then
 executes a kernel, which inserts samples from $s_f$ into volumes $G, W$. The kernel execution is asynchronous, so CPU may compute FFT of another buffer while
 kernel is still running. The manipulator may execute kernel iteratively or just once, depending on whether atomic operations are switched off or on with
@@ -1727,7 +1726,7 @@ a tuning parameter.
     \begin{algorithmic}[1]
         \State initialize output volumes $G, W$ in GPU memory to zero
         \State initialize buffer of sample's Fourier Transform $s_f$ in GPU memory
-        \ForAll{$s \in S$} \label{fourier_algorithm_loop}
+        \ForAll{$s \in S$}
         \State $s_f \leftarrow FFT(s)$ on CPU
         \State upload $s_f$ to GPU
         \State insert trans. samples from $s_f$ into $G, W$
@@ -1751,9 +1750,9 @@ Otherwise, the version with online tuning would perform similarly to the origina
 
 The second experiment evaluates the benefit of online tuning. The experiment consists of three steps:
 \begin{itemize}
-    \item execution of code which is tuned offline for different hardware and samples resolution (so it will be suboptimal with current setup)
-    \item execution of code which is tuned offline for utilized hardware and samples resolution
-    \item execution of code with online tuning which is not tuned for any specific hardware or samples resolution
+    \item execution of code which was tuned offline for different hardware and samples resolution (so it is suboptimal with current setup)
+    \item execution of code which was tuned offline for utilized hardware and samples resolution
+    \item execution of code utilizing online tuning which is not tuned for any specific hardware or samples resolution
 \end{itemize}
 This experiment highly depends on a given computation problem, selection of tuning parameters and optimization method. However, a convergence of performances
 of online and offline tuned code should still be seen after sufficient amount of time, once tuning overhead (kernel compilation, execution of suboptimal
