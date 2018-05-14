@@ -792,6 +792,7 @@ KernelId addComposition(const std::string& compositionName, const std::vector<Ke
 \end{figure}
 
 \subsection{Kernel argument handling}
+\label{ktt-argument-handling}
 There are three types of kernel arguments supported by KTT -- vector, scalar and local memory (OpenCL) arguments. All arguments are referenced by using
 a handle provided by tuner. Argument addition methods are templated and support primitive data types (e.g., int, float) as well as user-defined data
 types (e.g., struct, class). Arguments are bound to kernels by using a method which accepts kernel handle and corresponding argument handles. This allows
@@ -1003,10 +1004,16 @@ tuning process. The error has to be then corrected by a user.
 
 In the second case, it is undesirable that a single faulty kernel would cause the entire tuning process to be terminated. When a kernel error is
 encountered, a message describing the cause is printed, but the tuning process then continues with next configuration. This works well during offline
-tuning where kernel output is discarded after validation. However, the situation is more complicated during online tuning, as kernel output can be utilized
-by a host application. In this case it is necessary for a host application to check whether computation was successful and possibly recompute the
-corresponding portion of result under different configuration. Before utilizing online tuning, it is best to ensure correctness of computation using
-different combinations of tuning parameters, so that time lost by trying to launch faulty kernels remains minimal.
+tuning where kernel output is discarded after validation. Moreover, when the tuner is configured to hold input and output buffers (see Section \ref{ktt-argument-handling}),
+it completely rewrites input and output buffers held by compute API, so potential data corruption caused by kernel malfunction is eliminated. 
+
+However, the situation is more complicated during online tuning, as kernel output can be utilized by a host application between kernel invocations. In
+this case, it is necessary for a host application to check whether computation was successful and possibly recompute the corresponding portion of a result
+under different configuration (by repeating kernel invocation with different combination of tuning parameters). If the kernel is executed but results are
+incorrect, the error is detected only if reference kernel or reference class is defined. However, result validation may not be suitable during online tuning
+where performance of the tuning process is crucial. Therefore, it is best to ensure correctness of computation using different combinations of tuning parameters
+during offline tuning when kernels are developed. If all the combinations yield correct results, the only type of error should be caused by a lack of
+resources on particular device, which can be detected by the tuner without usage of reference kernel or class.
 
 \section{Reference class}
 \label{ktt-reference-class}
@@ -1105,7 +1112,7 @@ Number of queues which are available corresponds to a user-specified amount duri
 Methods which can be run asynchronously include kernel running and operations with vector kernel arguments. It is possible to synchronize either only
 specified queue or all queues which effectively synchronizes the entire device (Figure \ref{ktt-manipulator-asynchronous-methods}).
 
-\begin{figure}
+\begin{figure}[ht]
 \begin{adjustwidth}{-1cm}{-1cm}
 \begin{lstlisting}
 QueueId getDefaultDeviceQueue()
@@ -1647,7 +1654,7 @@ into this software, description of implementation and evaluation of auto-tuning 
 \subsection{3D Fourier reconstruction in Xmipp}
 Xmipp\footnote{Website: http://xmipp.cnb.csic.es} is a software for cryo-electron microscopy (cryo-EM). It contains several tools used for processing
 different steps of cryo-EM image reconstruction pipeline. The pipeline has several computational bottlenecks, one of them being 3D Fourier reconstruction
-\cite{cryoem-source}. The 3D Fourier reconstruction builds a 3D volume in a Fourier space from a set of Fourier transforms of specimen's 2D projections.
+\cite{cryoem-source}. The 3D Fourier reconstruction builds a 3D volume in Fourier space from a set of Fourier transforms of specimen's 2D projections.
 Essentially, the reconstruction algorithm inserts 2D images with different rotations into a 3D grid using an interpolation kernel.
 
 The CUDA-based GPU acceleration of 3D Fourier reconstruction has been introduced in \cite{cryoem-example}. The algorithm uses a gather memory access
@@ -1739,8 +1746,8 @@ a tuning parameter.
 \subsection{Evaluation}
 In order to evaluate online auto-tuning with 3D Fourier reconstruction, two experiments were designed:
 \begin{itemize}
-    \item tuner overhead measurement
-    \item amortized performance measurement
+    \item tuner overhead measurement;
+    \item amortized performance measurement.
 \end{itemize}
 The first experiment measures an overhead added by the tuner. The space of tuning parameters was modified to contain only one configuration. In such case,
 KTT performs a single kernel compilation, concludes the tuning and then just executes the computation. The timing of such computation is compared against
@@ -1748,15 +1755,43 @@ the original implementation which accessed CUDA API directly. If there was any s
 method or a limitation of KTT design, requiring to use a GPU in less efficient way), the timing of online-tuned implementation would be significantly worse.
 Otherwise, the version with online tuning would perform similarly to the original version.
 
-The second experiment evaluates the benefit of online tuning. The experiment consists of three steps:
+The second experiment evaluates the benefit of online tuning. The experiment consists of the following steps:
 \begin{itemize}
-    \item execution of code which was tuned offline for different hardware and samples resolution (so it is suboptimal with current setup)
-    \item execution of code which was tuned offline for utilized hardware and samples resolution
-    \item execution of code utilizing online tuning which is not tuned for any specific hardware or samples resolution
+    \item execution of code which was tuned offline for different hardware and samples resolution (so it would be suboptimal with current setup);
+    \item execution of code which was tuned offline for the same hardware but different samples resolution (reflects current Xmipp implementation);
+    \item execution of code which was tuned offline for utilized hardware and samples resolution (this is an upper-bound for online tuning, as the tuning
+    overhead is completely removed by offline tuning);
+    \item execution of code utilizing online tuning which is not tuned for any specific hardware or samples resolution.
 \end{itemize}
 This experiment highly depends on a given computation problem, selection of tuning parameters and optimization method. However, a convergence of performances
 of online and offline tuned code should still be seen after sufficient amount of time, once tuning overhead (kernel compilation, execution of suboptimal
 kernels) is amortized.
+
+To conduct the experiments, a desktop computer equipped with Intel Core i7-3820 (4 cores at 3.6 GHz) and GeForce GTX 1070 was utilized. The benchmark
+has been performed using projection images of the Brome Mosaic Virus \cite{atom-model} in resolution $83 \times 83$ pixels.
+
+The first experiment has been performed using 15,697 images. The runtime of the original, offline tuned code is 49.81\,s, the online tuned code with only
+one combination of tuning parameters is 51.06\,s, so the overhead of added online tuning is $\mathbf{2.5\%}$. This overhead is negligible compared to
+performance differences in tuned code (see Table~\ref{fourier_portability}).
+
+The second experiment tests how the overall performance (including all the overhead of the initial tuning) is changing in time. Images in resolution
+$83 \times 83$ pixels were used and online tuning was configured in such a way that it performs tuning during first 50 kernel executions and computation with
+the fastest kernel afterwards. The tuning uses Markov chain Monte Carlo search method. As the search method is stochastic, 10 individual tunings were performed,
+the results are shown for the best and worst-performing one. The performance is measured in millions of images added to 3D space per second. As can be seen
+in Figure \ref{tuning_performance}, the performance of online tuning is poor during first 25 seconds where new kernels are compiled and tested. Afterwards, the
+overhead of initial tuning process is amortized quite quickly. The original code version tuned for Maxwell GPU and images of resolution $128 \times 128$ is
+outperformed after 43-54 seconds. The code tuned for GeForce GTX 1070 and image resolution $128 \times 128$ is outperformed after 98-192 seconds. Note that
+the fastest kernel is executed immediately after tuning has finished (approximately after 25 seconds). However, it takes some time to amortize the overhead of
+the initial tuning. The original code tuned offline for GeForce GTX 1070 and image size $83 \times 83$ shows an upper-bound for the test. It cannot be achieved by
+online auto-tuning, as all combinations of tuning parameters are explored in offline tuning, but its overhead is not included in measurement.
+
+\begin{figure}
+    \begin{center}
+    \includegraphics[width=125mm]{resources/tuning_comparison.pdf}
+    \end{center}
+    \caption{Performance comparison of offline and online tuned code.}
+    \label{tuning_performance}
+\end{figure}
 
 \FloatBarrier
 
